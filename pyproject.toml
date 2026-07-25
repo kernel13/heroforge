@@ -12,6 +12,9 @@ dependencies = [
     "pydantic-settings>=2.5",
     "sqlalchemy[asyncio]>=2.0.36",
     "asyncpg>=0.30",
+    # Alembic drives migrations synchronously on container start, so this is a runtime
+    # dependency and not a test one, even though nothing else in the app uses it.
+    "psycopg[binary]>=3.2",
     "alembic>=1.14",
     "fastapi-users[sqlalchemy]>=14.0",
     "argon2-cffi>=23.1",
@@ -31,7 +34,6 @@ dev = [
     "pytest-asyncio>=0.24",
     "httpx>=0.27",
     "testcontainers[postgres]>=4.8",
-    "psycopg[binary]>=3.2",
     "ruff>=0.8",
     "mypy>=1.13",
     "types-pyyaml>=6.0",

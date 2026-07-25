@@ -19,6 +19,7 @@ from heroforge.api.skills_cache import cache
 from heroforge.config import get_settings
 from heroforge.db.seed import seed_skills
 from heroforge.db.session import get_engine, get_sessionmaker
+from heroforge.logging import configure_logging
 from heroforge.rate_limit import RateLimitExceededError, auth_limit
 
 
@@ -36,6 +37,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app(*, mount_reference_admin: bool = True) -> FastAPI:
+    configure_logging()
     settings = get_settings()
     app = FastAPI(
         title="HeroForge",

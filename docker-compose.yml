@@ -73,16 +73,14 @@ services:
     restart: unless-stopped
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - ${BACKUP_DIR:-./backups}:/backups
-    entrypoint: ["/bin/sh", "-c"]
-    command: >
-      'while true; do
-         sleep $$(( 86400 - $$(date +%s) % 86400 ));
-         pg_dump -h postgres -U ${POSTGRES_USER} -d ${POSTGRES_DB}
-           | gzip > /backups/heroforge-$$(date +%Y%m%d).sql.gz;
-         find /backups -name "heroforge-*.sql.gz" -mtime +30 -delete;
-       done'
+      # A file rather than an inline block: a folded YAML scalar joins its lines with spaces,
+      # which silently turns a shell pipeline into a syntax error.
+      - ./docker/backup.sh:/usr/local/bin/backup.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup.sh"]
     depends_on:
       postgres:
         condition: service_healthy

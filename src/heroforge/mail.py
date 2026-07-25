@@ -19,7 +19,16 @@ logger = logging.getLogger(__name__)
 async def _send(to: str, subject: str, body: str) -> None:
     settings = get_settings()
     if not settings.smtp_host:
-        logger.info("mail not configured; would send to %s: %s\n%s", to, subject, body)
+        # No SMTP host: print the message instead of sending it. Without this an operator running
+        # a fresh deployment could never activate the first account.
+        logger.warning(
+            "SMTP is not configured, so this message was not sent.\n"
+            "  To:      %s\n"
+            "  Subject: %s\n%s",
+            to,
+            subject,
+            body,
+        )
         return
 
     message = EmailMessage()

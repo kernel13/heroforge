@@ -13,8 +13,8 @@ values is the product.
 any non-trivial work. This file carries only the architecture summary and the conventions that are
 easy to get wrong; it does not restate the spec's column tables or endpoint list.
 
-**Current state: the repository contains the spec and the reference PDF only.** No application code,
-no build tooling, no `docker-compose.yml` exists yet.
+**Current state: phase 1 is implemented.** Rules engine, API, React sheet, Docker Compose
+deployment, and CI are all in place and green.
 
 ## Architecture
 
@@ -178,18 +178,49 @@ never planned: PDF export, dice rolling, party/DM features, character sharing, a
 
 ## Commands
 
-**No build tooling exists in the repository yet.** Once scaffolded, the commands below are what CI
-runs; update this section with the real invocations as they land.
+Python is managed by `uv`; the rules engine is a workspace member under `packages/`.
 
 ```
-pytest                                  # backend + rules engine
-pytest path/to/test_file.py::test_name  # single test
-ruff check . && ruff format --check .
-mypy --strict heroforge_rules/
-npm run test        # vitest
-npm run test:e2e    # playwright
-npm run build
+uv sync                                        # install everything, including dev tools
+uv run pytest -q                               # rules engine + API (spins up PostgreSQL 16)
+uv run pytest tests/test_characters.py::TestUpdate -q      # one class
+uv run ruff check . && uv run ruff format --check .
+uv run mypy --strict packages/heroforge-rules/src/heroforge_rules
+
+uv run python scripts/dump_openapi.py          # refresh openapi.json
+npm --prefix web run generate:api              # regenerate committed TS types
+npm --prefix web run typecheck
+npm --prefix web test                          # vitest
+npm --prefix web run test:e2e                  # playwright, needs the stack running
+npm --prefix web run build
 ```
+
+Running the stack locally:
+
+```
+cp .env.example .env                           # then set SECRET and the database password
+docker compose up -d                           # caddy + api + postgres; web builds and exits
+```
+
+Or without Docker, against a local PostgreSQL:
+
+```
+uv run alembic upgrade head
+uv run uvicorn heroforge.api.app:app --port 8000
+npm --prefix web run dev                       # proxies /api to :8000
+```
+
+`OGL.txt` is generated, not hand-written: `./scripts/fetch-ogl.sh` rebuilds it from the published
+licence text and appends this project's Section 15 declaration. The web image build fails if it is
+missing.
+
+### Things the tests pin that are easy to undo
+
+- The **250 ms derive** and **2 s save** debounces watch an edit counter, not the draft object. A
+  fresh object identity every render makes the recompute effect re-fire forever and restarts the
+  save timer each time, so the sheet never saves. `useSheet.ts` says so; a Vitest case guards it.
+- `VERIFICATION_REQUIRED` applies to **both** the login route and the user dependency. Applying it
+  to only one produces an account that can log in and is then refused on every request.
 
 ## Licensing and naming
 
