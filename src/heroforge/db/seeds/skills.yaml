@@ -1,0 +1,45 @@
+# The SRD 3.5 skill list. Reference data: seeded at startup, editable through sqladmin.
+#
+# armor_check_penalty  the * marker on the paper sheet
+# acp_double           Swim only; the sheet's footnote reads "(Double penalty for Swim.)"
+# usable_untrained     the small filled square beside the skill name
+# sheet_rows           how many blank rows the printed form gives this skill
+#
+# Mechanics from the System Reference Document, used under the Open Game License 1.0a.
+version: 1
+skills:
+  - { id: 1,  name: Appraise,           key_ability: INT }
+  - { id: 2,  name: Balance,            key_ability: DEX, armor_check_penalty: true }
+  - { id: 3,  name: Bluff,              key_ability: CHA }
+  - { id: 4,  name: Climb,              key_ability: STR, armor_check_penalty: true }
+  - { id: 5,  name: Concentration,      key_ability: CON }
+  - { id: 6,  name: Craft,              key_ability: INT, takes_specialization: true, sheet_rows: 3 }
+  - { id: 7,  name: Decipher Script,    key_ability: INT, usable_untrained: false }
+  - { id: 8,  name: Diplomacy,          key_ability: CHA }
+  - { id: 9,  name: Disable Device,     key_ability: INT, usable_untrained: false }
+  - { id: 10, name: Disguise,           key_ability: CHA }
+  - { id: 11, name: Escape Artist,      key_ability: DEX, armor_check_penalty: true }
+  - { id: 12, name: Forgery,            key_ability: INT }
+  - { id: 13, name: Gather Information, key_ability: CHA }
+  - { id: 14, name: Handle Animal,      key_ability: CHA, usable_untrained: false }
+  - { id: 15, name: Heal,               key_ability: WIS }
+  - { id: 16, name: Hide,               key_ability: DEX, armor_check_penalty: true }
+  - { id: 17, name: Intimidate,         key_ability: CHA }
+  - { id: 18, name: Jump,               key_ability: STR, armor_check_penalty: true }
+  - { id: 19, name: Knowledge,          key_ability: INT, usable_untrained: false, takes_specialization: true, sheet_rows: 5 }
+  - { id: 20, name: Listen,             key_ability: WIS }
+  - { id: 21, name: Move Silently,      key_ability: DEX, armor_check_penalty: true }
+  - { id: 22, name: Open Lock,          key_ability: DEX, usable_untrained: false }
+  - { id: 23, name: Perform,            key_ability: CHA, takes_specialization: true, sheet_rows: 3 }
+  - { id: 24, name: Profession,         key_ability: WIS, usable_untrained: false, takes_specialization: true, sheet_rows: 2 }
+  - { id: 25, name: Ride,               key_ability: DEX }
+  - { id: 26, name: Search,             key_ability: INT }
+  - { id: 27, name: Sense Motive,       key_ability: WIS }
+  - { id: 28, name: Sleight of Hand,    key_ability: DEX, armor_check_penalty: true, usable_untrained: false }
+  - { id: 29, name: Spellcraft,         key_ability: INT, usable_untrained: false }
+  - { id: 30, name: Spot,               key_ability: WIS }
+  - { id: 31, name: Survival,           key_ability: WIS }
+  - { id: 32, name: Swim,               key_ability: STR, armor_check_penalty: true, acp_double: true }
+  - { id: 33, name: Tumble,             key_ability: DEX, armor_check_penalty: true, usable_untrained: false }
+  - { id: 34, name: Use Magic Device,   key_ability: CHA, usable_untrained: false }
+  - { id: 35, name: Use Rope,           key_ability: DEX }
