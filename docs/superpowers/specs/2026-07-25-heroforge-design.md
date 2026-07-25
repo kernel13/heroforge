@@ -147,9 +147,11 @@ grapple_modifier         = base_attack_bonus + str_mod + grapple_size_modifier +
                            note: grapple_size_modifier ≠ ac_size (see §6)
 
 armor_check_penalty      = sum of check penalties of equipped armour and shield
-skill_total              = ranks + ability_mod + misc
-                              - (armor_check_penalty if skill.armor_check_penalty)
-                              - (armor_check_penalty again if skill.acp_double)   # Swim
+                           stored and summed as a non-positive integer (see below)
+effective_ranks          = floor(ranks)
+skill_total              = effective_ranks + ability_mod + misc
+                              + (armor_check_penalty if skill.armor_check_penalty)
+                              + (armor_check_penalty again if skill.acp_double)   # Swim
 max_ranks                = character_level + 3          class skill
                          = (character_level + 3) / 2    cross-class skill
 
@@ -171,14 +173,36 @@ the engine to function, so it does not belong in the database.
 frequently mis-derived number on a hand-written sheet. It is applied to `armor_class`,
 `touch_ac`, and `flat_footed_ac` alike.
 
+### Two conventions that must not be left implicit
+
+**Half ranks contribute nothing to the skill check.** `ranks` is stored as a half-integer, but a
+half rank does not improve a skill check — it only counts toward the maximum and brings the character
+closer to the next full rank. The engine therefore floors ranks before adding them, while `max_ranks`
+validation compares against the *unfloored* stored value. A character with 3½ ranks in a cross-class
+skill adds 3.
+
+This is the one formula in phase 1 whose SRD wording should be re-read and quoted in the test
+docstring before the implementation is written. It is the most likely source of a silent
+off-by-one, and it would otherwise surface only in the golden character test.
+
+**Armour check penalties are stored as non-positive integers.** Full plate is stored as `-5`, not
+`5` — matching both the SRD armour tables and what the user writes on the paper sheet. The engine
+consequently **adds** the summed penalty rather than subtracting it. The golden character carries
+armour with a nonzero check penalty and asserts a Swim total, so that the sign convention and the
+Swim double-penalty rule are both pinned by test.
+
 ### Entry point
 
 ```python
 def derive(character: CharacterInput, skills: list[SkillDefinition]) -> DerivedSheet: ...
 ```
 
-Skill definitions are **passed in**, never fetched. The API layer loads them from the database and
-supplies them. This preserves the engine's I/O-free property.
+Skill definitions are **passed in**, never fetched. This preserves the engine's I/O-free property.
+
+The API layer loads the `skills` table **once at application startup into an in-memory cache** and
+supplies it to every `derive()` call. The table is roughly forty immutable rows, so caching is
+trivial, and it is what allows `POST /api/derive` (§7) to touch no database at all on the
+per-keystroke path. Edits made through `sqladmin` invalidate the cache.
 
 ## 6. Data model
 
@@ -217,7 +241,7 @@ that phase 2 extends without rework.
 | Abilities | `str_score` … `cha_score`, `str_temp` … `cha_temp` (nullable) |
 | Health | `hp_total`, `hp_current`, `nonlethal_damage`, `damage_reduction` |
 | Combat | `speed`, `spell_resistance`, `base_attack_bonus`, `grapple_misc`, `grapple_size_modifier`, `initiative_misc` |
-| Saves | `base_fortitude`, `base_reflex`, `base_will`; and for each of the three, `*_magic`, `*_misc`, `*_temporary` (twelve columns in total) |
+| Saves | `base_fortitude`, `base_reflex`, `base_will`; and for each of the three, `*_magic`, `*_misc`, `*_temporary` (twelve columns in total); plus `saves_conditional_modifiers` text — the free-text box beside SAVING THROWS on page 1 |
 | AC components | `ac_natural`, `ac_deflection`, `ac_size`, `ac_misc` (armour and shield bonuses come from `character_armor`) |
 
 Two naming clarifications that prevent genuine confusion:
@@ -228,7 +252,7 @@ Two naming clarifications that prevent genuine confusion:
   grapple checks is not the same value as the size modifier applied to armour class — a Small
   creature has +1 AC but −4 to grapple. They are separate columns and must not be conflated.
 | Money | `money_cp`, `money_sp`, `money_gp`, `money_pp` |
-| JSONB | `possessions`, `feats`, `special_abilities`, `languages`, `spells_raw` |
+| JSONB | `possessions`, `feats`, `special_abilities`, `languages`, `spells_raw` (shapes in §6.3) |
 
 **`character_class_levels`** — `character_id`, `class_name` (text), `level` (int). Free text in phase
 1; becomes a foreign key to a `classes` table in phase 2. The sum of `level` is the character level
@@ -246,6 +270,13 @@ that drives `max_ranks`.
 | `is_class_skill` | bool — user-set in phase 1, derived from class in phase 2 |
 
 Exactly one of `skill_id` and `custom_name` is non-null; enforced by a check constraint.
+
+**Row creation is eager.** `POST /api/characters` inserts one `character_skills` row per SRD skill,
+zeroed. Lazy creation on first edit would mean the list endpoint and the sheet component each need
+to reconcile the stored rows against the reference list and synthesise the missing ones, in two
+places, forever. Forty rows per character is nothing, and the sheet displays all of them regardless.
+Rows for skills that take a specialization (Craft, Knowledge, Perform, Profession) are created to
+match the paper sheet's repeat count, and further ones can be added by the user.
 
 `ranks` is stored as the displayed half-integer value rather than as skill points spent. Cross-class
 ranks are genuinely half-integers in 3.5 and the paper sheet asks you to write "3½"; storing the
@@ -276,14 +307,16 @@ requires weapon reference data, size modifiers, Strength application rules that 
 and two-handed weapons, and iterative attacks from BAB — all of which depend on phase 2 and later.
 The fields are typed by the user, exactly as on paper, and the rows are otherwise stored verbatim.
 
-### Normalised versus JSONB
+### 6.3 Normalised versus JSONB
 
 The rule applied throughout: **normalise what the engine reasons about, use JSONB for what it only
 stores or sums.**
 
 - `possessions` — JSONB array of `{item, page, weight}`. Only ever summed.
-- `feats`, `special_abilities`, `languages` — JSONB arrays of strings. Feats become a structured
-  table in phase 3, when they start carrying mechanical effects.
+- `feats`, `special_abilities` — JSONB arrays of `{name, page}`. The paper sheet has a **PG.** column
+  beside both, for the rulebook page reference; objects rather than bare strings preserve it at no
+  cost. Feats become a structured table in phase 3, when they start carrying mechanical effects.
+- `languages` — JSONB array of strings.
 - `spells_raw` — JSONB. Not computed in phase 1; stored verbatim so that page-2 data entered by the
   user is not lost while spellcasting waits for phase 4.
 
@@ -301,6 +334,7 @@ POST   /api/auth/reset-password
 GET    /api/skills                   reference data
 
 POST   /api/derive                   stateless: character payload → DerivedSheet. Persists nothing.
+                                     Requires an authenticated session and is rate-limited.
 
 GET    /api/characters               list, owned by current user
 POST   /api/characters               create
@@ -312,8 +346,12 @@ DELETE /api/characters/{id}
 ### Live recomputation
 
 React holds the sheet in local state. Each edit fires a 250 ms-debounced `POST /api/derive`, which
-performs no database access and returns in single-digit milliseconds. Persistence is a separate
-2 s-debounced `PATCH`.
+performs no database access — skill definitions come from the startup cache described in §5 — and
+returns in single-digit milliseconds. Persistence is a separate 2 s-debounced `PATCH`.
+
+`/api/derive` is unauthenticated compute on a publicly registrable application, so it requires a
+valid session and carries a generous per-session `slowapi` rate limit: high enough never to
+interfere with typing, low enough not to serve as free compute.
 
 Changing Dexterity from 14 to 16 therefore updates AC, touch AC, flat-footed AC, initiative, the
 Reflex save, and every Dexterity-keyed skill in one response.
