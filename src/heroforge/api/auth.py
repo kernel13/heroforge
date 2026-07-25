@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from heroforge.config import get_settings
 from heroforge.db.models import AccessToken, User
-from heroforge.db.session import get_session
+from heroforge.db.session import get_session, get_sessionmaker
 from heroforge.mail import send_reset_password_email, send_verification_email
 
 
@@ -97,15 +97,18 @@ _authenticated = fastapi_users.current_user(active=True)
 _authenticated_superuser = fastapi_users.current_user(active=True, superuser=True)
 
 
-def _require_verified(user: User) -> None:
-    """Email verification is required before an account can be used.
+def is_verified_enough(user: User) -> bool:
+    """Whether email verification lets this account be used.
 
-    Checked here as well as on the login route, and read per request rather than bound at import
-    time: a setting that lets someone log in but then refuses every request is not a setting, it
-    is a broken account. The flag exists so local development and the end-to-end run need no mail
-    server, and it defaults to on.
+    Read per request rather than bound at import time: a setting that lets someone log in and
+    then refuses every request is not a setting, it is a broken account. The flag exists so local
+    development and the end-to-end run need no mail server, and it defaults to on.
     """
-    if get_settings().verification_required and not user.is_verified:
+    return user.is_verified or not get_settings().verification_required
+
+
+def _require_verified(user: User) -> None:
+    if not is_verified_enough(user):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Confirm your email address before using your account.",
@@ -119,6 +122,29 @@ async def current_active_user(user: User = Depends(_authenticated)) -> User:
 
 async def current_superuser(user: User = Depends(_authenticated_superuser)) -> User:
     _require_verified(user)
+    return user
+
+
+async def user_from_request(request: Request) -> User | None:
+    """Resolve a session cookie to its user, outside the dependency system.
+
+    `sqladmin` mounts its own sub-application and authenticates through a callback rather than
+    through `Depends`, so it cannot use the dependencies above. Calling one of them by hand does
+    not work either — nothing resolves `Depends`, so the parameter would be bound to the request
+    object itself. This does the lookup the dependency would have done.
+    """
+    token = request.cookies.get(get_settings().cookie_name)
+    if not token:
+        return None
+
+    async with get_sessionmaker()() as session:
+        strategy: DatabaseStrategy[Any, Any, Any] = DatabaseStrategy(
+            SQLAlchemyAccessTokenDatabase(session, AccessToken),
+            lifetime_seconds=get_settings().cookie_max_age,
+        )
+        manager = UserManager(SQLAlchemyUserDatabase(session, User), _password_helper())
+        user: User | None = await strategy.read_token(token, manager)
+
     return user
 
 

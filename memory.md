@@ -11,9 +11,10 @@ Phase 1 of `docs/superpowers/specs/2026-07-25-heroforge-design.md` is **implemen
 - [x] 1 Playwright end-to-end test, passing against the running stack
 - [x] docker compose + Caddy + .env.example + OGL.txt, **verified running**
 - [x] GitHub Actions CI
+- [x] sqladmin auth + cache invalidation covered — 7 tests
 - [x] CLAUDE.md commands section updated
 
-**202 tests total.** Nothing known-broken.
+**209 tests total** (195 pytest, 14 vitest, 1 Playwright). Nothing known-broken.
 
 ## Environment facts (verified)
 
@@ -65,6 +66,13 @@ DATABASE_URL=postgresql+asyncpg://heroforge:heroforge@localhost:55432/heroforge 
 - **`psycopg` was dev-only** but Alembic needs it at container start. Now a runtime dependency.
 - **Backup command as a folded YAML block** — YAML joins the lines with spaces, turning the shell
   pipeline into a syntax error. Now `docker/backup.sh`.
+- **sqladmin auth was both broken and wide open.** `SuperuserOnly.authenticate` called the route
+  dependency by hand; nothing resolves `Depends` outside a request, so `user` was bound to the
+  `Request`. With verification on it raised `AttributeError` and refused *everyone*, superusers
+  included; with verification off the check short-circuited before touching the attribute,
+  returned a truthy request, and **admitted anonymous visitors**. Every other test builds the app
+  with `mount_reference_admin=False`, so nothing exercised it. `tests/test_admin.py` now does,
+  and both failures were confirmed to reproduce against the original code.
 - **App logger had no handler** under uvicorn, so with no SMTP configured the verification link
   was silently discarded and a fresh deployment could never activate its first account.
   `src/heroforge/logging.py` fixes it; unsent mail logs at WARNING.

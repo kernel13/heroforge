@@ -52,18 +52,23 @@ class UserAdmin(ModelView, model=User):
 
 
 class SuperuserOnly(AuthenticationBackend):
-    """The admin is reachable only with a session cookie belonging to a superuser."""
+    """The admin is reachable only with a session cookie belonging to a superuser.
+
+    The check is written out rather than delegated to the route dependencies: `sqladmin` mounts a
+    sub-application and authenticates through this callback, where `Depends` does not resolve.
+    Every condition is stated positively and the default is refusal.
+    """
 
     async def authenticate(self, request: Request) -> bool:
-        from heroforge.api.auth import current_superuser
+        from heroforge.api.auth import is_verified_enough, user_from_request
 
-        try:
-            await current_superuser(request)
-        except Exception:
+        user = await user_from_request(request)
+        if user is None:
             return False
-        return True
+        return bool(user.is_active) and bool(user.is_superuser) and is_verified_enough(user)
 
     async def login(self, request: Request) -> bool:
+        """There is no separate admin login; a superuser signs in through the application."""
         return False
 
     async def logout(self, request: Request) -> bool:
