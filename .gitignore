@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+.vite/
+web/dist/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Test artifacts
+.coverage
+htmlcov/
+playwright-report/
+test-results/
+
+# OS
+.DS_Store
