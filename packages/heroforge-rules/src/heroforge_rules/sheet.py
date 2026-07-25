@@ -35,11 +35,12 @@ from heroforge_rules.encumbrance import (
 )
 from heroforge_rules.models import (
     Ability,
-    AbilityBlock,
     CharacterInput,
+    DerivedAbilities,
     DerivedArmorClass,
     DerivedEncumbrance,
     DerivedSave,
+    DerivedSaves,
     DerivedSheet,
     DerivedSkill,
     LoadCategory,
@@ -111,10 +112,12 @@ def derive(character: CharacterInput, skills: Sequence[SkillDefinition]) -> Deri
         flat_footed=flat_footed_ac(total_ac, dex_to_ac),
     )
 
-    saves = {
-        name: _derive_save(getattr(character, name), abilities[ability].modifier)
-        for name, ability in SAVE_ABILITIES.items()
-    }
+    saves = DerivedSaves(
+        **{
+            name: _derive_save(getattr(character, name), abilities[ability].modifier)
+            for name, ability in SAVE_ABILITIES.items()
+        }
+    )
 
     character_level = character.character_level
     definitions = {definition.id: definition for definition in skills}
@@ -190,7 +193,7 @@ def _derive_skill(
     entry: SkillEntry,
     definitions: dict[int, SkillDefinition],
     *,
-    abilities: dict[Ability, AbilityBlock],
+    abilities: DerivedAbilities,
     character_level: int,
     check_penalty: int,
     warnings: list[RuleWarning],

@@ -10,7 +10,7 @@ import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request, status
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin, schemas
 from fastapi_users.authentication import AuthenticationBackend, CookieTransport
 from fastapi_users.authentication.strategy.db import (
@@ -93,8 +93,33 @@ auth_backend = AuthenticationBackend(
 
 fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])
 
-current_active_user = fastapi_users.current_user(active=True, verified=True)
-current_superuser = fastapi_users.current_user(active=True, verified=True, superuser=True)
+_authenticated = fastapi_users.current_user(active=True)
+_authenticated_superuser = fastapi_users.current_user(active=True, superuser=True)
+
+
+def _require_verified(user: User) -> None:
+    """Email verification is required before an account can be used.
+
+    Checked here as well as on the login route, and read per request rather than bound at import
+    time: a setting that lets someone log in but then refuses every request is not a setting, it
+    is a broken account. The flag exists so local development and the end-to-end run need no mail
+    server, and it defaults to on.
+    """
+    if get_settings().verification_required and not user.is_verified:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Confirm your email address before using your account.",
+        )
+
+
+async def current_active_user(user: User = Depends(_authenticated)) -> User:
+    _require_verified(user)
+    return user
+
+
+async def current_superuser(user: User = Depends(_authenticated_superuser)) -> User:
+    _require_verified(user)
+    return user
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):

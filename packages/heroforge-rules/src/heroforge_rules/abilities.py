@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from heroforge_rules.models import Ability, AbilityBlock, AbilityScores
+from heroforge_rules.models import Ability, AbilityBlock, AbilityScores, DerivedAbilities
 
 
 def ability_modifier(score: int) -> int:
@@ -14,15 +14,23 @@ def ability_modifier(score: int) -> int:
     return (score - 10) // 2
 
 
-def ability_modifiers(scores: AbilityScores) -> dict[Ability, AbilityBlock]:
+def ability_modifiers(scores: AbilityScores) -> DerivedAbilities:
     """The whole ability table, using temporary scores where present."""
-    blocks: dict[Ability, AbilityBlock] = {}
-    for ability in Ability:
+
+    def block(ability: Ability) -> AbilityBlock:
         effective = scores.effective(ability)
         temporary: int | None = getattr(scores, f"{ability.value.lower()}_temp")
-        blocks[ability] = AbilityBlock(
+        return AbilityBlock(
             score=effective,
             modifier=ability_modifier(effective),
             is_temporary=temporary is not None,
         )
-    return blocks
+
+    return DerivedAbilities(
+        strength=block(Ability.STR),
+        dexterity=block(Ability.DEX),
+        constitution=block(Ability.CON),
+        intelligence=block(Ability.INT),
+        wisdom=block(Ability.WIS),
+        charisma=block(Ability.CHA),
+    )

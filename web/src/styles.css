@@ -1,0 +1,554 @@
+/*
+ * The application's own visual design.
+ *
+ * The sheet's *structure* — which fields exist and how they combine — is mechanical and comes
+ * from the SRD. The printed record sheet's design is not reproduced: no black bar headings, no
+ * publisher trade dress, no attempt at the original typography.
+ */
+
+:root {
+  --ink: #23201c;
+  --ink-soft: #6b645b;
+  --paper: #faf8f4;
+  --card: #ffffff;
+  --rule: #e0d9cd;
+  --accent: #6a4c2f;
+  --accent-soft: #f0e7d9;
+  --danger: #9b2c20;
+  --danger-soft: #fbeae8;
+  --ok: #2f6b3f;
+  --radius: 6px;
+  --gap: 0.75rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+}
+
+/* ---------- shell ---------- */
+
+.app__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  padding: 0.6rem 1.25rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--rule);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.app__brand {
+  font-weight: 600;
+}
+
+.app__user {
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.app__main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+.app__footer {
+  border-top: 1px solid var(--rule);
+  padding: 1rem 1.25rem;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.loading,
+.characters__empty {
+  color: var(--ink-soft);
+}
+
+/* ---------- controls ---------- */
+
+.button {
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.button--quiet {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--rule);
+}
+
+.tab {
+  font: inherit;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.tab--active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0.3rem 0.4rem;
+  min-width: 0;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---------- fields ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 9rem;
+  flex: 1 1 9rem;
+}
+
+.field--compact {
+  min-width: 6rem;
+  flex: 0 1 6rem;
+}
+
+.field--wide {
+  flex: 1 1 100%;
+}
+
+.field__label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.field__input--number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.field__input--area {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+  align-items: flex-end;
+}
+
+.row--totals {
+  margin-bottom: var(--gap);
+}
+
+.derived {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  min-width: 6rem;
+}
+
+.derived__label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.derived__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.derived--total .derived__value {
+  font-size: 1.6rem;
+  line-height: 1.1;
+}
+
+/* ---------- panels ---------- */
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.panel__title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.5rem 0.9rem;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--rule);
+}
+
+.panel__body {
+  padding: 0.9rem;
+}
+
+.panel__note {
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+fieldset {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  margin: 0 0 var(--gap);
+  padding: 0.6rem 0.75rem;
+}
+
+legend {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  padding: 0 0.3rem;
+}
+
+/* ---------- sheet ---------- */
+
+.sheet__header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--gap);
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.sheet__level {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.sheet__page-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+  margin: 1.5rem 0 0.6rem;
+}
+
+/* ---------- tables ---------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.2rem 0.35rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+thead th {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+table input[type="number"],
+table input[type="text"] {
+  width: 100%;
+  text-align: right;
+}
+
+.abilities input {
+  max-width: 5rem;
+}
+
+.abilities__name {
+  font-weight: 600;
+}
+
+.abilities__modifier,
+.saves__total,
+.skills__total {
+  display: block;
+  text-align: right;
+  font-weight: 600;
+}
+
+.saves__ability {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.saves__ability-modifier,
+.skills__component {
+  display: block;
+  text-align: right;
+  color: var(--ink-soft);
+}
+
+.skills__name {
+  min-width: 14rem;
+}
+
+.skills__name input {
+  text-align: left;
+}
+
+.skills__specialization {
+  margin-left: 0.4rem;
+  max-width: 10rem;
+}
+
+.skills__flag {
+  margin-left: 0.3rem;
+  font-size: 0.7rem;
+  color: var(--accent);
+  border: none;
+  text-decoration: none;
+}
+
+.skills__row--untrained {
+  color: var(--ink-soft);
+}
+
+.skills__ranks,
+.skills__misc {
+  max-width: 4.5rem;
+}
+
+.skills__key {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.possessions__page,
+.references__page {
+  max-width: 4rem;
+}
+
+.possessions__weight {
+  max-width: 5rem;
+}
+
+.possessions input[type="text"]:first-child {
+  text-align: left;
+}
+
+.languages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.languages li {
+  display: flex;
+  gap: 0.2rem;
+}
+
+/* ---------- banners ---------- */
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius);
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.banner--quiet {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+}
+
+/* Persistent by design: it stays until the save succeeds. */
+.banner--error {
+  background: var(--danger-soft);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+.warnings {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.warnings h2 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.warnings ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.87rem;
+}
+
+.warnings__note {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+.error {
+  color: var(--danger);
+}
+
+.notice {
+  color: var(--ok);
+}
+
+/* ---------- auth and list ---------- */
+
+.auth {
+  max-width: 27rem;
+  margin: 4rem auto;
+  padding: 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.auth__blurb {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.auth__tabs {
+  display: flex;
+  gap: 0.2rem;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 1rem;
+}
+
+.auth__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.characters__new {
+  display: flex;
+  gap: var(--gap);
+  align-items: flex-end;
+  margin: 1rem 0 1.5rem;
+}
+
+.characters__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.characters__list li {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+}
+
+.characters__open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  background: none;
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.characters__name {
+  font-weight: 600;
+}
+
+.characters__meta {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 720px) {
+  .field,
+  .field--compact {
+    flex-basis: 100%;
+  }
+}

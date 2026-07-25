@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import Depends, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +14,7 @@ from heroforge.api import auth as auth_module
 from heroforge.api.admin import mount_admin
 from heroforge.api.problems import install_exception_handlers, problem
 from heroforge.api.routers import characters, derive, skills
+from heroforge.api.schemas import Problem
 from heroforge.api.skills_cache import cache
 from heroforge.config import get_settings
 from heroforge.db.seed import seed_skills
@@ -60,10 +62,16 @@ def create_app(*, mount_reference_admin: bool = True) -> FastAPI:
             instance=str(request.url.path),
         )
 
+    # Every error leaves through the RFC 7807 handler, so declare that shape once. It documents
+    # the contract and puts `Problem` in the OpenAPI schema the frontend types are generated from.
+    problems: dict[int | str, dict[str, Any]] = {
+        "default": {"model": Problem, "description": "RFC 7807 problem document"}
+    }
+
     _install_auth_routes(app)
-    app.include_router(skills.router)
-    app.include_router(derive.router)
-    app.include_router(characters.router)
+    app.include_router(skills.router, responses=problems)
+    app.include_router(derive.router, responses=problems)
+    app.include_router(characters.router, responses=problems)
 
     @app.get("/api/health", tags=["meta"])
     async def health() -> dict[str, str]:
@@ -83,8 +91,14 @@ def _install_auth_routes(app: FastAPI) -> None:
     users = auth_module.fastapi_users
     limited = [Depends(auth_limit())]
 
+    # Verification before first login is the deployed behaviour. The setting exists so local
+    # development and the end-to-end run do not need a mail server; it defaults to on.
+    requires_verification = get_settings().verification_required
+
     app.include_router(
-        users.get_auth_router(auth_module.auth_backend, requires_verification=True),
+        users.get_auth_router(
+            auth_module.auth_backend, requires_verification=requires_verification
+        ),
         prefix="/api/auth",
         tags=["auth"],
         dependencies=limited,

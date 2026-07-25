@@ -28,3 +28,6 @@ test-results/
 
 # OS
 .DS_Store
+
+# Playwright
+web/test-results/

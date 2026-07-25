@@ -1,0 +1,23 @@
+# Caddy terminates TLS, serves the built React bundle, and reverse-proxies /api/* to uvicorn.
+# Certificates are issued and renewed automatically for a real hostname.
+
+{$SITE_ADDRESS} {
+	encode gzip zstd
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		# A single-page application: unknown paths are routes, not missing files.
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}

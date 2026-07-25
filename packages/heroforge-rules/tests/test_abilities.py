@@ -62,14 +62,14 @@ def test_ability_modifiers_maps_every_ability() -> None:
     )
     blocks = ability_modifiers(scores)
 
-    assert set(blocks) == set(Ability)
+    assert [ability for ability, _ in blocks.items()] == list(Ability)
     assert blocks[Ability.STR].modifier == 1
     assert blocks[Ability.DEX].modifier == 3
     assert blocks[Ability.CON].modifier == 2
     assert blocks[Ability.INT].modifier == 1
     assert blocks[Ability.WIS].modifier == 0
     assert blocks[Ability.CHA].modifier == -1
-    assert all(not block.is_temporary for block in blocks.values())
+    assert all(not block.is_temporary for _, block in blocks.items())
 
 
 def test_ability_modifiers_flags_temporary_rows() -> None:

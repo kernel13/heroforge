@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from enum import StrEnum
-from typing import Annotated, Self
+from typing import Annotated, ClassVar, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -234,6 +234,40 @@ class AbilityBlock(BaseModel):
     is_temporary: bool = False
 
 
+class DerivedAbilities(BaseModel):
+    """The six ability rows.
+
+    Named fields rather than a dictionary keyed by ``Ability``: a mapping schema generates a
+    TypeScript index signature, and the frontend would lose the guarantee that every ability is
+    present. Indexing by ``Ability`` still works for the engine's own use.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    strength: AbilityBlock
+    dexterity: AbilityBlock
+    constitution: AbilityBlock
+    intelligence: AbilityBlock
+    wisdom: AbilityBlock
+    charisma: AbilityBlock
+
+    _FIELDS: ClassVar[dict[Ability, str]] = {
+        Ability.STR: "strength",
+        Ability.DEX: "dexterity",
+        Ability.CON: "constitution",
+        Ability.INT: "intelligence",
+        Ability.WIS: "wisdom",
+        Ability.CHA: "charisma",
+    }
+
+    def __getitem__(self, ability: Ability) -> AbilityBlock:
+        block: AbilityBlock = getattr(self, self._FIELDS[ability])
+        return block
+
+    def items(self) -> list[tuple[Ability, AbilityBlock]]:
+        return [(ability, self[ability]) for ability in Ability]
+
+
 class DerivedSave(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -243,6 +277,20 @@ class DerivedSave(BaseModel):
     misc: int
     temporary: int
     total: int
+
+
+class DerivedSaves(BaseModel):
+    """The three saving-throw rows, named for the same reason the abilities are."""
+
+    model_config = ConfigDict(frozen=True)
+
+    fortitude: DerivedSave
+    reflex: DerivedSave
+    will: DerivedSave
+
+    def __getitem__(self, save: str) -> DerivedSave:
+        result: DerivedSave = getattr(self, save)
+        return result
 
 
 class DerivedArmorClass(BaseModel):
@@ -298,12 +346,12 @@ class DerivedSheet(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     character_level: int
-    abilities: dict[Ability, AbilityBlock]
+    abilities: DerivedAbilities
     armor_class: DerivedArmorClass
     initiative: int
     grapple_modifier: int
     armor_check_penalty: int
-    saves: dict[str, DerivedSave]
+    saves: DerivedSaves
     skills: list[DerivedSkill]
     encumbrance: DerivedEncumbrance
     warnings: list[RuleWarning] = Field(default_factory=list)

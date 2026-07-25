@@ -1,0 +1,94 @@
+# Four services, as the design document describes: caddy, api, web (a build stage producing static
+# files), and postgres:16. Secrets come from .env and are never baked into an image.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - web-dist:/srv:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    depends_on:
+      web:
+        condition: service_completed_successfully
+      api:
+        condition: service_started
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SECRET: ${SECRET}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      VERIFICATION_REQUIRED: ${VERIFICATION_REQUIRED:-true}
+      CORS_ORIGINS: '["https://${SITE_ADDRESS:-localhost}"]'
+      PUBLIC_BASE_URL: https://${SITE_ADDRESS:-localhost}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@localhost}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # A build stage, not a server: it compiles the bundle into the volume Caddy serves and exits.
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    volumes:
+      - web-dist:/output
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # A character sheet represents months of play and exists nowhere else. Losing the volume
+  # without a dump is unrecoverable, so this runs nightly into a host directory.
+  backup:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      'while true; do
+         sleep $$(( 86400 - $$(date +%s) % 86400 ));
+         pg_dump -h postgres -U ${POSTGRES_USER} -d ${POSTGRES_DB}
+           | gzip > /backups/heroforge-$$(date +%Y%m%d).sql.gz;
+         find /backups -name "heroforge-*.sql.gz" -mtime +30 -delete;
+       done'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  web-dist:
+  caddy-data:
+  caddy-config:
