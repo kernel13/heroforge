@@ -10,6 +10,7 @@ export const DEFINITIONS: SkillDefinition[] = [
   {
     id: 16,
     name: "Hide",
+    name_fr: "Discrétion",
     key_ability: "DEX",
     armor_check_penalty: true,
     acp_double: false,
@@ -20,6 +21,7 @@ export const DEFINITIONS: SkillDefinition[] = [
   {
     id: 32,
     name: "Swim",
+    name_fr: "Natation",
     key_ability: "STR",
     armor_check_penalty: true,
     acp_double: true,
@@ -30,6 +32,7 @@ export const DEFINITIONS: SkillDefinition[] = [
   {
     id: 19,
     name: "Knowledge",
+    name_fr: "Connaissances",
     key_ability: "INT",
     armor_check_penalty: false,
     acp_double: false,
@@ -56,13 +59,12 @@ export function derivedSkill(overrides: Partial<DerivedSkill> = {}): DerivedSkil
     key_ability: "DEX",
     is_class_skill: false,
     usable_untrained: true,
-    ranks: "0",
-    effective_ranks: 0,
+    ranks: 0,
     ability_modifier: 2,
     misc_modifier: 0,
     armor_check_penalty: 0,
     total: 2,
-    max_ranks: "3",
+    max_ranks: 3,
     ...overrides,
   };
 }
@@ -95,6 +97,10 @@ export function derivedSheet(overrides: Partial<DerivedSheet> = {}): DerivedShee
     armor_check_penalty: 0,
     saves: { fortitude: save(2, 3, 5), reflex: save(0, 2, 2), will: save(2, 0, 2) },
     skills: [derivedSkill()],
+    // A flat 0, deliberately not summed from `skills` above: a fixture that recomputed it would be
+    // a second implementation of the engine's sum, and would agree with itself while disagreeing
+    // with the engine. A test that asserts on the count passes the count it expects.
+    total_ranks: 0,
     encumbrance: {
       carried_weight: "0",
       light_load: 50,
@@ -188,7 +194,7 @@ export function character(overrides: Partial<CharacterRead> = {}): CharacterRead
         custom_name: null,
         custom_key_ability: null,
         specialization: null,
-        ranks: "0",
+        ranks: 0,
         misc_modifier: 0,
         is_class_skill: false,
       },

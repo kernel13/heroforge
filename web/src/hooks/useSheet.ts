@@ -19,11 +19,19 @@ import { useDebounced } from "./useDebounced";
 export const DERIVE_DEBOUNCE_MS = 250;
 export const SAVE_DEBOUNCE_MS = 2000;
 
+/**
+ * A failure carries *why*, not a sentence.
+ *
+ * The hook has no language — it runs the same whichever one the interface is in — so it reports
+ * the conflict flag and the HTTP status and lets `SaveBanner` say what that means. `httpStatus` is
+ * null when the request never reached the server at all, which is a different thing to tell the
+ * user than any status the server could have returned.
+ */
 export type SaveState =
   | { status: "saved" }
   | { status: "pending" }
   | { status: "saving" }
-  | { status: "failed"; message: string; conflict: boolean };
+  | { status: "failed"; conflict: boolean; httpStatus: number | null };
 
 /** The stored fields, without the ones the server owns. */
 export function draftOf(character: CharacterRead): CharacterBody {
@@ -112,10 +120,7 @@ export function useSheet(
         setSave({
           status: "failed",
           conflict: failure?.isVersionConflict ?? false,
-          message:
-            failure?.isVersionConflict === true
-              ? "This character was changed in another tab or window. Reload to see the current version before saving again — your edits here are still on screen."
-              : (failure?.message ?? "Could not reach the server."),
+          httpStatus: failure?.status ?? null,
         });
       }
     },
