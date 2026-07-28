@@ -20,6 +20,8 @@ RUN mkdir -p packages/heroforge-rules/src/heroforge_rules src/heroforge \
 
 COPY packages/ ./packages/
 COPY src/ ./src/
+# Operational commands — granting the first superuser, refreshing the OpenAPI schema.
+COPY scripts/ ./scripts/
 COPY alembic.ini ./
 RUN uv sync --frozen --no-dev
 

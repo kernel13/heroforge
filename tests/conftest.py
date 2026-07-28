@@ -42,12 +42,19 @@ def postgres() -> Iterator[PostgresContainer]:
 @pytest.fixture(scope="session")
 def configured(postgres: PostgresContainer) -> Iterator[Any]:
     """Point the settings at the container, then migrate it once."""
-    url = postgres.get_connection_url()
-    os.environ["DATABASE_URL"] = url
+    from heroforge.config import Settings, get_settings
+
+    # Anyone running the stack locally has a `.env` in the repository root, and
+    # `pydantic-settings` reads it. That makes the suite behave differently on their machine from
+    # CI, which has no such file: `VERIFICATION_REQUIRED=false` in a local `.env` is enough to
+    # turn "an unverified user cannot log in" red for them and green for everyone else. The tests
+    # configure themselves entirely from what is set below.
+    Settings.model_config["env_file"] = None
+
+    os.environ["DATABASE_URL"] = postgres.get_connection_url()
     os.environ["COOKIE_SECURE"] = "false"
     os.environ["SECRET"] = "test-secret-value"
-
-    from heroforge.config import get_settings
+    os.environ["VERIFICATION_REQUIRED"] = "true"
 
     get_settings.cache_clear()
     settings = get_settings()
