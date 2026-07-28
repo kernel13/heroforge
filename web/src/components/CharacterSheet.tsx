@@ -283,13 +283,12 @@ export function CharacterSheet({
 
             <HitPoints {...blockProps} />
 
-            {/* Both sides read the same Dexterity, and one of them says how much of it the armour
-                lets through; side by side, that is one glance rather than two. The totals they
-                feed are in the rail, in view from wherever on the page you are typing. */}
-            <PanelPair>
-              <ArmorClassBlock {...blockProps} />
-              <InitiativeAndGrapple {...blockProps} />
-            </PanelPair>
+            {/* These were a `PanelPair`, on the grounds that both read the same Dexterity. They are
+                stacked now — initiative and grapple first, armour class full width under it, at
+                every width. The totals they both feed are in the rail, in view from wherever on the
+                page you are typing. */}
+            <InitiativeAndGrapple {...blockProps} />
+            <ArmorClassBlock {...blockProps} />
 
             <SavingThrows {...blockProps} />
             <AttacksBlock {...blockProps} />

@@ -18,12 +18,14 @@ import {
 } from "@/components/ui/table";
 import {
   IconArmorClass,
+  IconAttacks,
   IconHitPoints,
   IconInitiative,
   IconSaves,
 } from "./icons";
 import {
   Derived,
+  Fieldset,
   Note,
   NumberField,
   Panel,
@@ -161,48 +163,74 @@ export function ArmorClassBlock({ draft, derived, update }: Props) {
   );
 }
 
-/** Initiative and grapple themselves are in the rail; what is left here is what feeds them. */
+/**
+ * Initiative and grapple themselves are in the rail; what is left here is what feeds them.
+ *
+ * **Two `Fieldset`s, not one `Row` of six.** Flat, the six controls said nothing about which of
+ * the two totals each one fed — and "Base attack bonus" does not carry the word grapple in its
+ * label, so the boundary was invisible exactly where it mattered. The legends and their glyphs are
+ * the rail's: initiative is `IconInitiative` and grapple is `IconAttacks` there, and the same shape
+ * meaning the same thing in both regions is what lets a player trace a figure back to the box that
+ * feeds it.
+ *
+ * **The labels are deliberately left long inside the groups.** A `<legend>` names the group, not
+ * the controls in it — it does not join their accessible names — so shortening "Grapple misc" to
+ * "Misc" under a Grapple legend would leave it and "Initiative misc" answering to the same name,
+ * and `getByLabelText` throws rather than fails legibly. Both suites address every control here by
+ * name.
+ *
+ * Both notes belong to grapple — one is about its size modifier, the other about the base attack
+ * bonus that feeds it — so they sit inside that group rather than under the panel, where they read
+ * as footnotes to all six controls.
+ */
 export function InitiativeAndGrapple({ draft, derived, update }: Props) {
   const t = useT();
   return (
     <Panel title={t("panel.initiativeGrapple")} icon={<IconInitiative />}>
-      <Row>
-        <Derived
-          label={t("init.dexUncapped")}
-          value={signed(derived.abilities.dexterity.modifier)}
-          title={t("init.dexUncapped.title")}
-        />
-        <NumberField
-          label={t("init.initiativeMisc")}
-          value={draft.initiative_misc ?? 0}
-          onChange={(initiative_misc) => update({ initiative_misc })}
-          compact
-        />
-        <NumberField
-          label={t("init.baseAttackBonus")}
-          value={draft.base_attack_bonus ?? 0}
-          onChange={(base_attack_bonus) => update({ base_attack_bonus })}
-          compact
-        />
-        <Derived
-          label={t("init.strengthGrapple")}
-          value={signed(derived.abilities.strength.modifier)}
-        />
-        <NumberField
-          label={t("init.grappleSize")}
-          value={draft.grapple_size_modifier ?? 0}
-          onChange={(grapple_size_modifier) => update({ grapple_size_modifier })}
-          compact
-        />
-        <NumberField
-          label={t("init.grappleMisc")}
-          value={draft.grapple_misc ?? 0}
-          onChange={(grapple_misc) => update({ grapple_misc })}
-          compact
-        />
-      </Row>
-      <Note>{t("init.note.size")}</Note>
-      <Note>{t("init.note.bab")}</Note>
+      <Fieldset legend={t("init.initiative")} icon={<IconInitiative />}>
+        <Row>
+          <Derived
+            label={t("init.dexUncapped")}
+            value={signed(derived.abilities.dexterity.modifier)}
+            title={t("init.dexUncapped.title")}
+          />
+          <NumberField
+            label={t("init.initiativeMisc")}
+            value={draft.initiative_misc ?? 0}
+            onChange={(initiative_misc) => update({ initiative_misc })}
+            compact
+          />
+        </Row>
+      </Fieldset>
+
+      <Fieldset legend={t("init.grapple")} icon={<IconAttacks />}>
+        <Row>
+          <NumberField
+            label={t("init.baseAttackBonus")}
+            value={draft.base_attack_bonus ?? 0}
+            onChange={(base_attack_bonus) => update({ base_attack_bonus })}
+            compact
+          />
+          <Derived
+            label={t("init.strengthGrapple")}
+            value={signed(derived.abilities.strength.modifier)}
+          />
+          <NumberField
+            label={t("init.grappleSize")}
+            value={draft.grapple_size_modifier ?? 0}
+            onChange={(grapple_size_modifier) => update({ grapple_size_modifier })}
+            compact
+          />
+          <NumberField
+            label={t("init.grappleMisc")}
+            value={draft.grapple_misc ?? 0}
+            onChange={(grapple_misc) => update({ grapple_misc })}
+            compact
+          />
+        </Row>
+        <Note>{t("init.note.size")}</Note>
+        <Note>{t("init.note.bab")}</Note>
+      </Fieldset>
     </Panel>
   );
 }

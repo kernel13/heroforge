@@ -401,9 +401,12 @@ warnings in tokens, the API serves every name it holds, and the client decides w
   question already answered — and a tall drawn one at the top of every sheet. Identity is an
   ordinary `Panel`.
 - **Paired panels go in `PanelPair`**, an `auto-fit` grid — abilities beside the class levels that
-  cap every rank, armour class beside the initiative the same Dexterity feeds. It is the panel's
-  own minimum that decides when the row breaks, not a breakpoint that would have to be revisited
-  each time a field is added to either side.
+  cap every rank. It is the panel's own minimum that decides when the row breaks, not a breakpoint
+  that would have to be revisited each time a field is added to either side.
+  **Armour class and initiative/grapple are deliberately *not* a pair.** They were, on the grounds
+  that both read the same Dexterity. They are stacked now — initiative and grapple first, armour
+  class full width under it, at every width. Re-pairing them is the obvious tidy-up; it is a
+  deliberate layout choice, not an omission.
 - **The abilities table has one modifier column, not two.** The pair showed which of the base and
   temporary scores the engine had taken the modifier from by leaving one of them *blank*, which is
   the least legible way a table can say anything. "Modifier in use" shows it directly and the row

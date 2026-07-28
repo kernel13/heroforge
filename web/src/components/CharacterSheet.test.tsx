@@ -216,6 +216,35 @@ describe("the derived rail", () => {
   });
 
   /**
+   * The initiative/grapple panel splits its six controls into two named groups, and the split is
+   * only legible because of them: three of the six feed one total and three feed the other, and
+   * "Base attack bonus" does not say grapple anywhere in its own label.
+   *
+   * The second half is the part that will be undone. A `<legend>` names the *group*; it does not
+   * join the accessible names of the controls inside it, in jsdom or in a browser. So "Grapple
+   * misc" cannot be shortened to "Misc" now that a Grapple legend sits above it — it would collide
+   * with the initiative one, and `getByLabelText` throws on the ambiguity rather than failing with
+   * something that points here.
+   */
+  it("groups initiative and grapple without merging their control names", () => {
+    renderSheet();
+
+    expect(screen.getByRole("group", { name: "Initiative" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Grapple" })).toBeInTheDocument();
+
+    for (const name of [
+      "Dexterity modifier (uncapped)",
+      "Initiative misc",
+      "Base attack bonus",
+      "Strength modifier (grapple)",
+      "Grapple size modifier",
+      "Grapple misc",
+    ]) {
+      expect(screen.getAllByLabelText(name)).toHaveLength(1);
+    }
+  });
+
+  /**
    * The other half of the same rule, and the one nothing else guards.
    *
    * The rail also echoes values the player *typed* — hit points, damage reduction, speed. Those go
