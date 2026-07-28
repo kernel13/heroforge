@@ -723,7 +723,7 @@
           },
           "skills": {
             "items": {
-              "$ref": "#/components/schemas/SkillRow-Input"
+              "$ref": "#/components/schemas/SkillRow"
             },
             "title": "Skills",
             "type": "array"
@@ -1165,7 +1165,7 @@
           },
           "skills": {
             "items": {
-              "$ref": "#/components/schemas/SkillRow-Input"
+              "$ref": "#/components/schemas/SkillRow"
             },
             "title": "Skills",
             "type": "array"
@@ -1261,6 +1261,25 @@
           "version"
         ],
         "title": "CharacterPatch",
+        "type": "object"
+      },
+      "CharacterPortraitRead": {
+        "description": "What an upload or a removal answers with.\n\nOnly the timestamp, because that is the whole of what the caller does not already know: it is\nwhat the card hangs on the image URL so the browser fetches the new bytes rather than the ones\nit cached a moment ago. Null after a removal.",
+        "properties": {
+          "portrait_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portrait Updated At"
+          }
+        },
+        "title": "CharacterPortraitRead",
         "type": "object"
       },
       "CharacterRead": {
@@ -1600,7 +1619,7 @@
           },
           "skills": {
             "items": {
-              "$ref": "#/components/schemas/SkillRow-Output"
+              "$ref": "#/components/schemas/SkillRow"
             },
             "title": "Skills",
             "type": "array"
@@ -1733,6 +1752,18 @@
             "title": "Player Name",
             "type": "string"
           },
+          "portrait_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portrait Updated At"
+          },
           "race": {
             "title": "Race",
             "type": "string"
@@ -1767,6 +1798,18 @@
           },
           "derived": {
             "$ref": "#/components/schemas/DerivedSheet"
+          },
+          "portrait_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portrait Updated At"
           }
         },
         "required": [
@@ -2046,6 +2089,10 @@
             "title": "Skills",
             "type": "array"
           },
+          "total_ranks": {
+            "title": "Total Ranks",
+            "type": "integer"
+          },
           "warnings": {
             "items": {
               "$ref": "#/components/schemas/RuleWarning"
@@ -2063,6 +2110,7 @@
           "armor_check_penalty",
           "saves",
           "skills",
+          "total_ranks",
           "encumbrance"
         ],
         "title": "DerivedSheet",
@@ -2076,10 +2124,6 @@
           },
           "armor_check_penalty": {
             "title": "Armor Check Penalty",
-            "type": "integer"
-          },
-          "effective_ranks": {
-            "title": "Effective Ranks",
             "type": "integer"
           },
           "is_class_skill": {
@@ -2101,9 +2145,8 @@
             "$ref": "#/components/schemas/Ability"
           },
           "max_ranks": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Max Ranks",
-            "type": "string"
+            "type": "integer"
           },
           "misc_modifier": {
             "title": "Misc Modifier",
@@ -2114,9 +2157,8 @@
             "type": "string"
           },
           "ranks": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Ranks",
-            "type": "string"
+            "type": "integer"
           },
           "skill_id": {
             "anyOf": [
@@ -2158,7 +2200,6 @@
           "is_class_skill",
           "usable_untrained",
           "ranks",
-          "effective_ranks",
           "ability_modifier",
           "misc_modifier",
           "armor_check_penalty",
@@ -2332,7 +2373,7 @@
         "type": "object"
       },
       "RuleWarning": {
-        "description": "A rules violation that the application reports rather than refuses.\n\nHouse rules and homebrew are normal play, so nothing here is an error. Named ``RuleWarning``\nrather than ``Warning`` so it does not shadow the builtin.",
+        "description": "A rules violation that the application reports rather than refuses.\n\nHouse rules and homebrew are normal play, so nothing here is an error. Named ``RuleWarning``\nrather than ``Warning`` so it does not shadow the builtin.\n\n``message`` is English and stays that way: the engine has no locale and is not going to grow\none. ``params`` carries the same facts as **tokens** \u2014 a skill identifier, a number, a\n``kind`` of ``\"class\"`` or ``\"cross_class\"`` \u2014 so a client that speaks another language can\nbuild the sentence itself rather than splicing a translation around English fragments. Values\nare strings because a warning's parameters differ per code and end up in text either way.",
         "properties": {
           "code": {
             "$ref": "#/components/schemas/WarningCode"
@@ -2351,6 +2392,13 @@
           "message": {
             "title": "Message",
             "type": "string"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Params",
+            "type": "object"
           }
         },
         "required": [
@@ -2381,6 +2429,17 @@
             "title": "Name",
             "type": "string"
           },
+          "name_fr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Fr"
+          },
           "sheet_rows": {
             "title": "Sheet Rows",
             "type": "integer"
@@ -2407,7 +2466,7 @@
         "title": "SkillDefinitionRead",
         "type": "object"
       },
-      "SkillRow-Input": {
+      "SkillRow": {
         "description": "One SKILLS row as stored. Exactly one of ``skill_id`` and ``custom_name`` is set.",
         "properties": {
           "custom_key_ability": {
@@ -2459,101 +2518,10 @@
             "type": "integer"
           },
           "ranks": {
-            "anyOf": [
-              {
-                "minimum": 0.0,
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-                "type": "string"
-              }
-            ],
-            "default": "0",
-            "title": "Ranks"
-          },
-          "skill_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Skill Id"
-          },
-          "specialization": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Specialization"
-          }
-        },
-        "title": "SkillRow",
-        "type": "object"
-      },
-      "SkillRow-Output": {
-        "description": "One SKILLS row as stored. Exactly one of ``skill_id`` and ``custom_name`` is set.",
-        "properties": {
-          "custom_key_ability": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Ability"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "custom_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Custom Name"
-          },
-          "id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "is_class_skill": {
-            "default": false,
-            "title": "Is Class Skill",
-            "type": "boolean"
-          },
-          "misc_modifier": {
             "default": 0,
-            "title": "Misc Modifier",
-            "type": "integer"
-          },
-          "ordinal": {
-            "default": 0,
-            "title": "Ordinal",
-            "type": "integer"
-          },
-          "ranks": {
-            "default": "0",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "minimum": 0.0,
             "title": "Ranks",
-            "type": "string"
+            "type": "integer"
           },
           "skill_id": {
             "anyOf": [
@@ -3394,6 +3362,151 @@
           }
         ],
         "summary": "Update Character",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/api/characters/{character_id}/portrait": {
+      "delete": {
+        "description": "Removing a portrait a character does not have succeeds \u2014 the state asked for is the state\nthat results, and a card whose remove control raced a reload should not report a failure.",
+        "operationId": "delete_portrait_api_characters__character_id__portrait_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterPortraitRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "RFC 7807 problem document"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Delete Portrait",
+        "tags": [
+          "characters"
+        ]
+      },
+      "get": {
+        "description": "A character with no portrait is a 404, exactly as another user's character is.\n\nThe list card only asks for this URL when the summary said there was something at it, so the\n404 is the unusual path and not a routine miss. It is cached for a day and hard to serve\nstale: the card hangs ``portrait_updated_at`` on the URL, so a replacement is a different URL.\n``private``, because it is one user's image and there is a shared proxy in front of this.",
+        "operationId": "read_portrait_api_characters__character_id__portrait_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/gif": {},
+              "image/jpeg": {},
+              "image/png": {},
+              "image/webp": {}
+            },
+            "description": "The portrait, in the media type it was uploaded as."
+          },
+          "404": {
+            "description": "No such character."
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "RFC 7807 problem document"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Read Portrait",
+        "tags": [
+          "characters"
+        ]
+      },
+      "put": {
+        "description": "The image as the raw request body, its type named by ``Content-Type``.\n\nDeliberately not multipart: the request carries one file and no fields, so a part boundary\nwould be ceremony around a body that is already exactly the bytes to store \u2014 and it would make\n``python-multipart``, presently a transitive dependency of ``fastapi-users``, a direct one.\n\n``version`` is untouched on purpose. The portrait is uploaded from the character list and is\nnot part of the document the sheet's optimistic concurrency guards; bumping it here would 409\na sheet the same user has open in another tab on its next autosave.",
+        "operationId": "replace_portrait_api_characters__character_id__portrait_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterPortraitRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "RFC 7807 problem document"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Replace Portrait",
         "tags": [
           "characters"
         ]

@@ -160,6 +160,48 @@ export interface paths {
         patch: operations["update_character_api_characters__character_id__patch"];
         trace?: never;
     };
+    "/api/characters/{character_id}/portrait": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Portrait
+         * @description A character with no portrait is a 404, exactly as another user's character is.
+         *
+         *     The list card only asks for this URL when the summary said there was something at it, so the
+         *     404 is the unusual path and not a routine miss. It is cached for a day and hard to serve
+         *     stale: the card hangs ``portrait_updated_at`` on the URL, so a replacement is a different URL.
+         *     ``private``, because it is one user's image and there is a shared proxy in front of this.
+         */
+        get: operations["read_portrait_api_characters__character_id__portrait_get"];
+        /**
+         * Replace Portrait
+         * @description The image as the raw request body, its type named by ``Content-Type``.
+         *
+         *     Deliberately not multipart: the request carries one file and no fields, so a part boundary
+         *     would be ceremony around a body that is already exactly the bytes to store — and it would make
+         *     ``python-multipart``, presently a transitive dependency of ``fastapi-users``, a direct one.
+         *
+         *     ``version`` is untouched on purpose. The portrait is uploaded from the character list and is
+         *     not part of the document the sheet's optimistic concurrency guards; bumping it here would 409
+         *     a sheet the same user has open in another tab on its next autosave.
+         */
+        put: operations["replace_portrait_api_characters__character_id__portrait_put"];
+        post?: never;
+        /**
+         * Delete Portrait
+         * @description Removing a portrait a character does not have succeeds — the state asked for is the state
+         *     that results, and a card whose remove control raced a reload should not report a failure.
+         */
+        delete: operations["delete_portrait_api_characters__character_id__portrait_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/derive": {
         parameters: {
             query?: never;
@@ -738,7 +780,7 @@ export interface components {
              */
             size: string;
             /** Skills */
-            skills?: components["schemas"]["SkillRow-Input"][];
+            skills?: components["schemas"]["SkillRow"][];
             /**
              * Skin
              * @default
@@ -1057,7 +1099,7 @@ export interface components {
              */
             size: string;
             /** Skills */
-            skills?: components["schemas"]["SkillRow-Input"][];
+            skills?: components["schemas"]["SkillRow"][];
             /**
              * Skin
              * @default
@@ -1110,6 +1152,18 @@ export interface components {
             wis_score: number;
             /** Wis Temp */
             wis_temp?: number | null;
+        };
+        /**
+         * CharacterPortraitRead
+         * @description What an upload or a removal answers with.
+         *
+         *     Only the timestamp, because that is the whole of what the caller does not already know: it is
+         *     what the card hangs on the image URL so the browser fetches the new bytes rather than the ones
+         *     it cached a moment ago. Null after a removal.
+         */
+        CharacterPortraitRead: {
+            /** Portrait Updated At */
+            portrait_updated_at?: string | null;
         };
         /** CharacterRead */
         CharacterRead: {
@@ -1364,7 +1418,7 @@ export interface components {
              */
             size: string;
             /** Skills */
-            skills?: components["schemas"]["SkillRow-Output"][];
+            skills?: components["schemas"]["SkillRow"][];
             /**
              * Skin
              * @default
@@ -1441,6 +1495,8 @@ export interface components {
             name: string;
             /** Player Name */
             player_name: string;
+            /** Portrait Updated At */
+            portrait_updated_at?: string | null;
             /** Race */
             race: string;
             /**
@@ -1458,6 +1514,8 @@ export interface components {
         CharacterWithDerived: {
             character: components["schemas"]["CharacterRead"];
             derived: components["schemas"]["DerivedSheet"];
+            /** Portrait Updated At */
+            portrait_updated_at?: string | null;
         };
         /** ClassLevelRow */
         ClassLevelRow: {
@@ -1579,6 +1637,8 @@ export interface components {
             saves: components["schemas"]["DerivedSaves"];
             /** Skills */
             skills: components["schemas"]["DerivedSkill"][];
+            /** Total Ranks */
+            total_ranks: number;
             /** Warnings */
             warnings?: components["schemas"]["RuleWarning"][];
         };
@@ -1588,21 +1648,19 @@ export interface components {
             ability_modifier: number;
             /** Armor Check Penalty */
             armor_check_penalty: number;
-            /** Effective Ranks */
-            effective_ranks: number;
             /** Is Class Skill */
             is_class_skill: boolean;
             /** Key */
             key: string | null;
             key_ability: components["schemas"]["Ability"];
             /** Max Ranks */
-            max_ranks: string;
+            max_ranks: number;
             /** Misc Modifier */
             misc_modifier: number;
             /** Name */
             name: string;
             /** Ranks */
-            ranks: string;
+            ranks: number;
             /** Skill Id */
             skill_id: number | null;
             /** Specialization */
@@ -1712,6 +1770,12 @@ export interface components {
          *
          *     House rules and homebrew are normal play, so nothing here is an error. Named ``RuleWarning``
          *     rather than ``Warning`` so it does not shadow the builtin.
+         *
+         *     ``message`` is English and stays that way: the engine has no locale and is not going to grow
+         *     one. ``params`` carries the same facts as **tokens** — a skill identifier, a number, a
+         *     ``kind`` of ``"class"`` or ``"cross_class"`` — so a client that speaks another language can
+         *     build the sentence itself rather than splicing a translation around English fragments. Values
+         *     are strings because a warning's parameters differ per code and end up in text either way.
          */
         RuleWarning: {
             code: components["schemas"]["WarningCode"];
@@ -1719,6 +1783,10 @@ export interface components {
             field?: string | null;
             /** Message */
             message: string;
+            /** Params */
+            params?: {
+                [key: string]: string;
+            };
         };
         /** SkillDefinitionRead */
         SkillDefinitionRead: {
@@ -1731,6 +1799,8 @@ export interface components {
             key_ability: components["schemas"]["Ability"];
             /** Name */
             name: string;
+            /** Name Fr */
+            name_fr?: string | null;
             /** Sheet Rows */
             sheet_rows: number;
             /** Takes Specialization */
@@ -1742,7 +1812,7 @@ export interface components {
          * SkillRow
          * @description One SKILLS row as stored. Exactly one of ``skill_id`` and ``custom_name`` is set.
          */
-        "SkillRow-Input": {
+        SkillRow: {
             custom_key_ability?: components["schemas"]["Ability"] | null;
             /** Custom Name */
             custom_name?: string | null;
@@ -1767,42 +1837,7 @@ export interface components {
              * Ranks
              * @default 0
              */
-            ranks: number | string;
-            /** Skill Id */
-            skill_id?: number | null;
-            /** Specialization */
-            specialization?: string | null;
-        };
-        /**
-         * SkillRow
-         * @description One SKILLS row as stored. Exactly one of ``skill_id`` and ``custom_name`` is set.
-         */
-        "SkillRow-Output": {
-            custom_key_ability?: components["schemas"]["Ability"] | null;
-            /** Custom Name */
-            custom_name?: string | null;
-            /** Id */
-            id?: string | null;
-            /**
-             * Is Class Skill
-             * @default false
-             */
-            is_class_skill: boolean;
-            /**
-             * Misc Modifier
-             * @default 0
-             */
-            misc_modifier: number;
-            /**
-             * Ordinal
-             * @default 0
-             */
-            ordinal: number;
-            /**
-             * Ranks
-             * @default 0
-             */
-            ranks: string;
+            ranks: number;
             /** Skill Id */
             skill_id?: number | null;
             /** Specialization */
@@ -2320,6 +2355,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CharacterWithDerived"];
+                };
+            };
+            /** @description RFC 7807 problem document */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    read_portrait_api_characters__character_id__portrait_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The portrait, in the media type it was uploaded as. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/gif": unknown;
+                    "image/jpeg": unknown;
+                    "image/png": unknown;
+                    "image/webp": unknown;
+                };
+            };
+            /** @description No such character. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description RFC 7807 problem document */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    replace_portrait_api_characters__character_id__portrait_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterPortraitRead"];
+                };
+            };
+            /** @description RFC 7807 problem document */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_portrait_api_characters__character_id__portrait_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterPortraitRead"];
                 };
             };
             /** @description RFC 7807 problem document */
