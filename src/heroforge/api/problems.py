@@ -28,6 +28,8 @@ _TITLES = {
     status.HTTP_404_NOT_FOUND: "Not found",
     status.HTTP_409_CONFLICT: "Conflict",
     UNPROCESSABLE: "Validation failed",
+    status.HTTP_413_CONTENT_TOO_LARGE: "Payload too large",
+    status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: "Unsupported media type",
     status.HTTP_429_TOO_MANY_REQUESTS: "Too many requests",
     status.HTTP_500_INTERNAL_SERVER_ERROR: "Internal server error",
 }

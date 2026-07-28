@@ -22,6 +22,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -209,6 +210,26 @@ class Character(Base):
     spells_raw: Mapped[dict[str, Any]] = mapped_column(
         JSONB, default=dict, nullable=False, server_default="{}"
     )
+
+    # The portrait.
+    #
+    # Deliberately outside the versioned document: it is uploaded from the character list, and
+    # bumping ``version`` there would 409 a sheet the same user has open in another tab on its next
+    # autosave. ``PATCH`` never touches these two columns; the portrait routes never touch
+    # ``version``.
+    #
+    # ``deferred``, because every ordinary character read would otherwise drag a few hundred
+    # kilobytes of image out of the database to render a sheet that does not show it. Only
+    # ``GET /api/characters/{id}/portrait`` loads the bytes, and it selects the column explicitly.
+    portrait_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
+    portrait_media_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    portrait_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    """Null where there is no portrait. Doubles as the list card's cache-buster: without it the
+    browser keeps serving the previous image from its own cache after a replacement. Not
+    ``updated_at``, which moves on every write to the row and would re-fetch the picture each time
+    the character's name was edited."""
 
     owner: Mapped[User] = relationship(back_populates="characters")
     class_levels: Mapped[list[CharacterClassLevel]] = relationship(

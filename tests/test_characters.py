@@ -294,3 +294,139 @@ class TestDelete:
         character = (await create(owner))["character"]
         await owner.delete(f"/api/characters/{character['id']}")
         assert (await owner.delete(f"/api/characters/{character['id']}")).status_code == 404
+
+
+# A one-pixel PNG. Small enough to be a literal and real enough that the media type is not a lie.
+PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
+    "1f15c4890000000a49444154789c6360000002000100ffff03000006000557bfabd4"
+    "0000000049454e44ae426082"
+)
+
+
+async def put_portrait(
+    client: AsyncClient, character_id: str, data: bytes = PNG, media_type: str = "image/png"
+) -> Any:
+    return await client.put(
+        f"/api/characters/{character_id}/portrait",
+        content=data,
+        headers={"Content-Type": media_type},
+    )
+
+
+class TestPortrait:
+    """The portrait sits outside the versioned document and outside the character's own payload."""
+
+    async def test_a_new_character_has_no_portrait(self, owner: AsyncClient) -> None:
+        character = (await create(owner))["character"]
+        listed = (await owner.get("/api/characters")).json()
+        assert listed[0]["portrait_updated_at"] is None
+        assert (await owner.get(f"/api/characters/{character['id']}/portrait")).status_code == 404
+
+    async def test_uploading_then_reading_returns_the_same_bytes(self, owner: AsyncClient) -> None:
+        character = (await create(owner))["character"]
+
+        upload = await put_portrait(owner, character["id"])
+        assert upload.status_code == 200, upload.text
+        assert upload.json()["portrait_updated_at"] is not None
+
+        served = await owner.get(f"/api/characters/{character['id']}/portrait")
+        assert served.status_code == 200
+        assert served.content == PNG
+        assert served.headers["content-type"] == "image/png"
+
+    async def test_the_summary_carries_the_stamp_but_never_the_bytes(
+        self, owner: AsyncClient
+    ) -> None:
+        """The list is deliberately narrow: the card fetches the image as a second request."""
+        character = (await create(owner))["character"]
+        await put_portrait(owner, character["id"])
+
+        summary = (await owner.get("/api/characters")).json()[0]
+        assert summary["portrait_updated_at"] is not None
+        assert "portrait_data" not in summary
+
+    async def test_the_sheet_gets_the_stamp_beside_the_character_never_on_it(
+        self, owner: AsyncClient
+    ) -> None:
+        """The sheet draws the portrait in its identity panel, so ``GET`` and ``PATCH`` carry the
+        stamp — beside the character and not on it. ``CharacterRead`` is what the client sends
+        back as a ``PATCH`` body and ``CharacterBody`` forbids extras, so a stamp riding on it
+        would 422 every autosave the moment a client stopped stripping it by hand."""
+        created = (await create(owner))["character"]
+        await put_portrait(owner, created["id"])
+
+        read = (await owner.get(f"/api/characters/{created['id']}")).json()
+        assert read["portrait_updated_at"] is not None
+        assert "portrait_updated_at" not in read["character"]
+
+        saved = (await patch(owner, read["character"], name="Bramwell the Bold")).json()
+        assert saved["portrait_updated_at"] == read["portrait_updated_at"]
+        assert "portrait_updated_at" not in saved["character"]
+
+    async def test_a_character_without_a_portrait_reads_a_null_stamp(
+        self, owner: AsyncClient
+    ) -> None:
+        created = (await create(owner))["character"]
+        read = (await owner.get(f"/api/characters/{created['id']}")).json()
+        assert read["portrait_updated_at"] is None
+
+    async def test_uploading_does_not_bump_the_version(self, owner: AsyncClient) -> None:
+        """A portrait changed from the list must not 409 a sheet open in another tab."""
+        character = (await create(owner))["character"]
+        await put_portrait(owner, character["id"])
+
+        assert (await patch(owner, character, name="Bramwell the Bold")).status_code == 200
+
+    async def test_removing_clears_the_stamp_and_the_image(self, owner: AsyncClient) -> None:
+        character = (await create(owner))["character"]
+        await put_portrait(owner, character["id"])
+
+        removed = await owner.delete(f"/api/characters/{character['id']}/portrait")
+        assert removed.status_code == 200
+        assert removed.json()["portrait_updated_at"] is None
+        assert (await owner.get(f"/api/characters/{character['id']}/portrait")).status_code == 404
+
+    async def test_removing_a_portrait_that_is_not_there_succeeds(self, owner: AsyncClient) -> None:
+        character = (await create(owner))["character"]
+        assert (
+            await owner.delete(f"/api/characters/{character['id']}/portrait")
+        ).status_code == 200
+
+    async def test_a_type_the_browser_cannot_display_is_refused(self, owner: AsyncClient) -> None:
+        character = (await create(owner))["character"]
+        refused = await put_portrait(owner, character["id"], media_type="image/svg+xml")
+        assert refused.status_code == 415
+        assert refused.headers["content-type"] == "application/problem+json"
+
+    async def test_an_oversized_upload_is_refused(self, owner: AsyncClient) -> None:
+        character = (await create(owner))["character"]
+        too_big = b"\x00" * (2 * 1024 * 1024 + 1)
+        assert (await put_portrait(owner, character["id"], data=too_big)).status_code == 413
+
+    async def test_an_empty_body_is_refused(self, owner: AsyncClient) -> None:
+        character = (await create(owner))["character"]
+        assert (await put_portrait(owner, character["id"], data=b"")).status_code == 400
+
+    async def test_another_users_portrait_is_a_404_on_every_route(
+        self, owner: AsyncClient, stranger: AsyncClient
+    ) -> None:
+        """404 and not 403 — a 403 would confirm the identifier exists."""
+        character = (await create(owner))["character"]
+        await put_portrait(owner, character["id"])
+
+        assert (
+            await stranger.get(f"/api/characters/{character['id']}/portrait")
+        ).status_code == 404
+        assert (await put_portrait(stranger, character["id"])).status_code == 404
+        assert (
+            await stranger.delete(f"/api/characters/{character['id']}/portrait")
+        ).status_code == 404
+
+    async def test_the_portrait_routes_require_a_session(self, client: AsyncClient) -> None:
+        anywhere = "/api/characters/00000000-0000-0000-0000-000000000000/portrait"
+        assert (await client.get(anywhere)).status_code == 401
+        assert (
+            await put_portrait(client, "00000000-0000-0000-0000-000000000000")
+        ).status_code == 401
+        assert (await client.delete(anywhere)).status_code == 401

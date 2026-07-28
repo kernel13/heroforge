@@ -243,12 +243,43 @@ class CharacterSummary(BaseModel):
     updated_at: datetime
     class_levels: list[ClassLevelRow] = Field(default_factory=list)
 
+    portrait_updated_at: datetime | None = None
+    """Null where the character has no portrait, so the card knows to draw the default glyph
+    instead. Where it is set it is also the cache-buster on the image URL — a replaced portrait
+    would otherwise keep rendering from the browser's own cache. The bytes themselves are never on
+    this model: they are a separate request, which is what keeps the list narrow."""
+
+
+class CharacterPortraitRead(BaseModel):
+    """What an upload or a removal answers with.
+
+    Only the timestamp, because that is the whole of what the caller does not already know: it is
+    what the card hangs on the image URL so the browser fetches the new bytes rather than the ones
+    it cached a moment ago. Null after a removal.
+    """
+
+    portrait_updated_at: datetime | None = None
+
 
 class CharacterWithDerived(BaseModel):
     """What ``GET`` and ``PATCH`` of a single character return."""
 
     character: CharacterRead
     derived: DerivedSheet
+
+    portrait_updated_at: datetime | None = None
+    """The stamp, beside the character rather than on it.
+
+    The sheet draws the portrait in its identity panel, so it needs both the fact that there is one
+    and the value that cache-busts its URL — the same two things the list card needs. It sits here
+    and not on ``CharacterRead`` because that model is what the client sends straight back as a
+    ``PATCH`` body, and ``CharacterBody`` forbids extras: a stamp on it would have to be stripped
+    by hand on the way out, in a place TypeScript cannot check, and a missed strip would 422 every
+    autosave and every ``/api/derive``. The portrait stays outside the versioned document — it is
+    still uploaded through its own routes, and ``PATCH`` still never touches the three columns.
+
+    Null where the character has no portrait. The bytes are never here; they are a second request,
+    which is what keeps ``portrait_data`` deferred and out of every ordinary read."""
 
 
 class SkillDefinitionRead(BaseModel):

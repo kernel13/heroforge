@@ -61,6 +61,39 @@ async def get_character(
     return (await session.scalars(statement)).unique().one_or_none()
 
 
+async def get_character_row(
+    session: AsyncSession, owner_id: uuid.UUID, character_id: uuid.UUID
+) -> Character | None:
+    """The character alone, with no child collections and no portrait bytes.
+
+    The portrait routes read and write three columns and render nothing; loading forty skill rows
+    to attach an image would be work with no reader. Nothing here may touch a relationship — that
+    is the lazy load ``MissingGreenlet`` comes from.
+    """
+    statement = select(Character).where(
+        Character.id == character_id, Character.owner_id == owner_id
+    )
+    return (await session.scalars(statement)).one_or_none()
+
+
+async def get_character_portrait(
+    session: AsyncSession, owner_id: uuid.UUID, character_id: uuid.UUID
+) -> tuple[bytes, str] | None:
+    """The portrait bytes and their media type, or ``None`` if there is no portrait to serve.
+
+    ``portrait_data`` is deferred on the model, so this is the one query that asks for it. A
+    character belonging to someone else and a character with no portrait are both ``None``: the
+    caller answers 404 either way, which is the same reason the owner filter is here at all.
+    """
+    statement = select(Character.portrait_data, Character.portrait_media_type).where(
+        Character.id == character_id, Character.owner_id == owner_id
+    )
+    row = (await session.execute(statement)).one_or_none()
+    if row is None or row.portrait_data is None or row.portrait_media_type is None:
+        return None
+    return row.portrait_data, row.portrait_media_type
+
+
 async def create_character(
     session: AsyncSession, owner_id: uuid.UUID, skills: Sequence[Skill], **fields: Any
 ) -> Character:
