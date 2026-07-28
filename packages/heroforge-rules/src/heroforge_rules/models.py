@@ -179,7 +179,10 @@ class SkillEntry(BaseModel):
     key_ability: Ability | None = None
     """Only meaningful for custom rows; SRD rows take the key ability from the definition."""
 
-    ranks: NonNegativeDecimal = Decimal(0)
+    ranks: Annotated[int, Field(ge=0)] = 0
+    """A whole number. Nothing in this application produces a fraction of a rank — it models no
+    skill-point cost, and ``skills.max_ranks`` rounds the cross-class half down."""
+
     misc_modifier: int = 0
     is_class_skill: bool = False
 
@@ -318,13 +321,12 @@ class DerivedSkill(BaseModel):
     key_ability: Ability
     is_class_skill: bool
     usable_untrained: bool
-    ranks: Decimal
-    effective_ranks: int
+    ranks: int
     ability_modifier: int
     misc_modifier: int
     armor_check_penalty: int
     total: int
-    max_ranks: Decimal
+    max_ranks: int
 
 
 class DerivedEncumbrance(BaseModel):
@@ -353,5 +355,9 @@ class DerivedSheet(BaseModel):
     armor_check_penalty: int
     saves: DerivedSaves
     skills: list[DerivedSkill]
+    total_ranks: int
+    """Sum of the ranks on every skill row. A count of ranks, never skill points spent — see
+    ``skills.total_ranks``."""
+
     encumbrance: DerivedEncumbrance
     warnings: list[RuleWarning] = Field(default_factory=list)

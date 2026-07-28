@@ -45,7 +45,7 @@ class SkillRow(BaseModel):
     custom_name: str | None = None
     custom_key_ability: Ability | None = None
     specialization: str | None = None
-    ranks: NonNegative = Decimal(0)
+    ranks: Annotated[int, Field(ge=0)] = 0
     misc_modifier: int = 0
     is_class_skill: bool = False
 

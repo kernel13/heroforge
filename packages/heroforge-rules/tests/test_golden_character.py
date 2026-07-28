@@ -14,7 +14,8 @@ that is easy to get wrong is exercised at once:
 * Small size, where ``ac_size`` is **+1** and ``grapple_size_modifier`` is **-4** — different
   numbers in different columns;
 * a **temporary Constitution** score, which must reach Fortitude and nothing else;
-* **cross-class half ranks**, which count toward the maximum but not toward the check;
+* a **cross-class skill**, which caps at half the class maximum, rounded down;
+* a cross-class row sitting **exactly on that halved maximum**, so the cap is pinned inclusive;
 * a carried weight landing **exactly on the medium/heavy boundary**;
 * one skill deliberately **over its rank maximum**, which is a warning and not an error.
 
@@ -73,15 +74,15 @@ POSSESSIONS = [
 
 # name, specialization, ranks, misc, class skill
 SKILL_ROWS = [
-    ("Climb", None, "10", 0, True),
-    ("Swim", None, "5", 0, True),
-    ("Hide", None, "4", 0, True),
-    ("Tumble", None, "3.5", 0, False),
-    ("Diplomacy", None, "2.5", 0, False),
-    ("Spot", None, "10", 2, True),
-    ("Knowledge", "dungeoneering", "5", 0, False),
-    ("Ride", None, "0", 0, True),
-    ("Listen", None, "12", 0, True),
+    ("Climb", None, 10, 0, True),
+    ("Swim", None, 5, 0, True),
+    ("Hide", None, 4, 0, True),
+    ("Tumble", None, 3, 0, False),
+    ("Diplomacy", None, 2, 0, False),
+    ("Spot", None, 10, 2, True),
+    ("Knowledge", "dungeoneering", 5, 0, False),
+    ("Ride", None, 0, 0, True),
+    ("Listen", None, 12, 0, True),
 ]
 
 
@@ -132,7 +133,7 @@ def bramwell() -> CharacterInput:
                 key=f"srd-{SKILL_IDS[name]}-{specialization or ''}",
                 skill_id=SKILL_IDS[name],
                 specialization=specialization,
-                ranks=Decimal(ranks),
+                ranks=ranks,
                 misc_modifier=misc,
                 is_class_skill=is_class,
             )
@@ -143,7 +144,7 @@ def bramwell() -> CharacterInput:
                 key="custom-1",
                 custom_name="Autohypnosis",
                 key_ability=Ability.WIS,
-                ranks=Decimal(6),
+                ranks=6,
                 is_class_skill=True,
             )
         ],
@@ -287,27 +288,48 @@ class TestSkills:
         assert row.total == -10
 
     def test_diplomacy_ignores_the_check_penalty(self, sheet: DerivedSheet) -> None:
-        # 2 effective ranks (of 2.5) + -1 Cha
+        # 2 ranks + -1 Cha
         row = skill(sheet, "Diplomacy")
         assert row.armor_check_penalty == 0
         assert row.total == 1
 
-    def test_cross_class_half_ranks_are_floored_for_the_check(self, sheet: DerivedSheet) -> None:
-        """3.5 ranks in Tumble adds 3: 3 + 3 Dex - 8 armour = -2."""
+    def test_a_cross_class_rank_counts_in_full(self, sheet: DerivedSheet) -> None:
+        """3 ranks in Tumble add 3: 3 + 3 Dex - 8 armour = -2.
+
+        A rank is a whole number here and there is no fraction to discard, so a cross-class rank
+        reaches the check exactly as a class one does. What remains of the distinction is the cost
+        — two skill points — which this engine does not model.
+        """
         row = skill(sheet, "Tumble")
-        assert row.ranks == Decimal("3.5")
-        assert row.effective_ranks == 3
+        assert row.is_class_skill is False
+        assert row.ranks == 3
         assert row.total == -2
 
-    def test_cross_class_maximum_is_a_half_integer(self, sheet: DerivedSheet) -> None:
-        assert skill(sheet, "Tumble").max_ranks == Decimal("5")
-        assert skill(sheet, "Climb").max_ranks == Decimal("10")
+    def test_a_cross_class_skill_caps_at_half_the_class_maximum(self, sheet: DerivedSheet) -> None:
+        """Character level 7: a class skill caps at 10, a cross-class one at 10 // 2 = 5.
+
+        Climb is a class skill here and Tumble is not, so the two columns of the same sheet carry
+        different ceilings — which is what catches a `max_ranks` called without the flag, since
+        one ceiling would then be silently wrong and the other right.
+        """
+        assert skill(sheet, "Tumble").is_class_skill is False
+        assert skill(sheet, "Tumble").max_ranks == 5
+        assert skill(sheet, "Climb").is_class_skill is True
+        assert skill(sheet, "Climb").max_ranks == 10
 
     def test_specialisation_is_carried_through(self, sheet: DerivedSheet) -> None:
         row = skill(sheet, "Knowledge")
         assert row.specialization == "dungeoneering"
         assert row.total == 6  # 5 ranks + 1 Int
         assert row.usable_untrained is False
+
+    def test_exactly_on_the_cross_class_maximum_is_not_over_it(self, sheet: DerivedSheet) -> None:
+        """Knowledge (dungeoneering) is cross-class with 5 ranks, and the cross-class cap at
+        character level 7 is 5. The comparison is strictly greater-than, so this row is legal and
+        contributes no warning — see `TestWarnings`, which still expects exactly two."""
+        row = skill(sheet, "Knowledge")
+        assert row.is_class_skill is False
+        assert (row.ranks, row.max_ranks) == (5, 5)
 
     def test_misc_modifier_reaches_the_total(self, sheet: DerivedSheet) -> None:
         assert skill(sheet, "Spot").total == 12  # 10 ranks + 0 Wis + 2 misc
@@ -327,6 +349,18 @@ class TestSkills:
     def test_a_skill_over_its_maximum_is_still_totalled(self, sheet: DerivedSheet) -> None:
         """The application reports; it does not refuse. Listen still adds all 12 ranks."""
         assert skill(sheet, "Listen").total == 12
+
+    def test_total_ranks_counts_every_row_including_the_custom_one(
+        self, sheet: DerivedSheet
+    ) -> None:
+        """10 + 5 + 4 + 3 + 2 + 10 + 5 + 0 + 12 across the SRD rows, plus 6 for Autohypnosis.
+
+        The blank row at the bottom of the sheet holds ranks like any other and is counted; and
+        Listen's 12 are counted despite being over the maximum, because the sum reports what is on
+        the sheet rather than what the rules would have allowed.
+        """
+        assert sheet.total_ranks == 57
+        assert sheet.total_ranks == sum(row.ranks for row in sheet.skills)
 
 
 class TestEncumbrance:

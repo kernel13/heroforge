@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -67,8 +66,9 @@ class TestCreate:
         rows = (await create(owner))["character"]["skills"]
         assert len(rows) == expected
         assert all(row["skill_id"] is not None for row in rows)
-        # Serialised as a decimal string; "0" and "0.0" are the same number of ranks.
-        assert all(Decimal(row["ranks"]) == 0 for row in rows)
+        # A JSON number, not a decimal string: ranks are whole. `0.0` would mean the column had
+        # gone back to `Numeric`.
+        assert all(row["ranks"] == 0 for row in rows)
 
     async def test_the_repeated_skills_match_the_printed_sheet(self, owner: AsyncClient) -> None:
         skills = {skill["name"]: skill["id"] for skill in (await owner.get("/api/skills")).json()}
@@ -211,7 +211,7 @@ class TestUpdate:
         response = await patch(owner, character, armor=[{"slot": "shield", "check_penalty": 2}])
         assert response.status_code == 422
 
-    async def test_skill_ranks_survive_a_round_trip_as_half_integers(
+    async def test_skill_ranks_survive_a_round_trip_as_whole_numbers(
         self, owner: AsyncClient
     ) -> None:
         character = (await create(owner))["character"]
@@ -221,13 +221,22 @@ class TestUpdate:
         response = await patch(
             owner,
             character,
-            skills=[{**tumble, "ranks": "3.5", "is_class_skill": False}],
+            skills=[{**tumble, "ranks": 4, "is_class_skill": False}],
         )
         assert response.status_code == 200, response.text
 
         stored = (await owner.get(f"/api/characters/{character['id']}")).json()
         assert len(stored["character"]["skills"]) == 1
-        assert stored["character"]["skills"][0]["ranks"] == "3.5"
+        assert stored["character"]["skills"][0]["ranks"] == 4
+
+    async def test_a_fractional_rank_is_rejected_at_the_boundary(self, owner: AsyncClient) -> None:
+        """Ranks are whole numbers here. Accepting 3.5 and storing 3 or 4 would make the sheet
+        disagree with what was typed; the boundary refuses it instead."""
+        character = (await create(owner))["character"]
+        row = next(row for row in character["skills"] if row["skill_id"] is not None)
+
+        response = await patch(owner, character, skills=[{**row, "ranks": 3.5}])
+        assert response.status_code == 422
 
     async def test_possessions_are_summed_into_carried_weight(self, owner: AsyncClient) -> None:
         character = (await create(owner))["character"]
@@ -267,7 +276,7 @@ class TestUpdate:
             owner,
             character,
             class_levels=[{"class_name": "Fighter", "level": 1}],
-            skills=[{**row, "ranks": "99", "is_class_skill": True}],
+            skills=[{**row, "ranks": 99, "is_class_skill": True}],
         )
         assert response.status_code == 200
         derived = response.json()["derived"]

@@ -46,9 +46,7 @@ async def test_one_change_of_dexterity_moves_every_dexterity_derived_value(
     skills = {row["name"]: row["id"] for row in (await user.get("/api/skills")).json()}
     payload: dict[str, Any] = {
         "class_levels": [{"class_name": "Rogue", "level": 4}],
-        "skills": [
-            {"ordinal": 0, "skill_id": skills["Hide"], "ranks": "7", "is_class_skill": True}
-        ],
+        "skills": [{"ordinal": 0, "skill_id": skills["Hide"], "ranks": 7, "is_class_skill": True}],
     }
 
     before = await derive(user, dex_score=14, **payload)

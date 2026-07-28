@@ -51,7 +51,7 @@ from heroforge_rules.models import (
     WarningCode,
 )
 from heroforge_rules.saves import SAVE_ABILITIES, save_total
-from heroforge_rules.skills import effective_ranks, max_ranks, skill_total
+from heroforge_rules.skills import max_ranks, skill_total, total_ranks
 
 
 def derive(character: CharacterInput, skills: Sequence[SkillDefinition]) -> DerivedSheet:
@@ -162,6 +162,7 @@ def derive(character: CharacterInput, skills: Sequence[SkillDefinition]) -> Deri
         armor_check_penalty=check_penalty,
         saves=saves,
         skills=derived_skills,
+        total_ranks=total_ranks(row.ranks for row in derived_skills),
         encumbrance=DerivedEncumbrance(
             carried_weight=weight,
             light_load=limits[0],
@@ -226,7 +227,6 @@ def _derive_skill(
     ability_modifier = abilities[key_ability].modifier
     cap = max_ranks(character_level, is_class_skill=entry.is_class_skill)
 
-    # Compared against the stored, unfloored value: 5.5 cross-class ranks at level 8 is legal.
     if entry.ranks > cap:
         kind = "class" if entry.is_class_skill else "cross-class"
         label = f"{name} ({entry.specialization})" if entry.specialization else name
@@ -250,7 +250,6 @@ def _derive_skill(
         is_class_skill=entry.is_class_skill,
         usable_untrained=usable_untrained,
         ranks=entry.ranks,
-        effective_ranks=effective_ranks(entry.ranks),
         ability_modifier=ability_modifier,
         misc_modifier=entry.misc_modifier,
         armor_check_penalty=_applied_penalty(check_penalty, applies_acp, doubles_acp),

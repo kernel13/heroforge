@@ -18,8 +18,9 @@ Skill definitions are passed in, never fetched.
 
 - Armour check penalties are stored as **non-positive** integers (full plate is `-5`). The engine
   adds them. Swim adds them twice.
-- `ranks` is a stored half-integer. A half rank contributes nothing to a check: the engine floors
-  ranks before adding, but `max_ranks` validation compares against the unfloored value.
+- `ranks` is a whole number and counts toward a check in full. The two-skill-points-per-rank cost
+  of a cross-class skill is the only thing that produces a fraction of a rank and is not modelled
+  here, so there is nothing to floor.
 - `grapple_size_modifier` is not `ac_size`. A Small creature has +1 AC but −4 to grapple.
 - The engine never raises. Rules violations come back as warnings on the result.
 

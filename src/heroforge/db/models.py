@@ -264,8 +264,10 @@ class CharacterSkill(Base):
     custom_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
     custom_key_ability: Mapped[str | None] = mapped_column(String(3), nullable=True)
     specialization: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    ranks: Mapped[Decimal] = mapped_column(Numeric(4, 1), default=Decimal(0), nullable=False)
-    """The displayed half-integer, not skill points spent. Cross-class ranks really are halves."""
+    ranks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    """The rank count as written on the sheet, not skill points spent. A whole number: this
+    application does not model the two-points-per-rank cross-class cost that halves would come
+    from."""
     misc_modifier: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_class_skill: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
