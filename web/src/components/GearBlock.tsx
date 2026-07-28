@@ -1,6 +1,7 @@
 /**
  * Page 2: the GEAR slots, possessions with the derived encumbrance, money, and the attack blocks.
  */
+import type { ReactNode } from "react";
 import type {
   ArmorRow,
   ArmorSlot,
@@ -9,7 +10,42 @@ import type {
   DerivedSheet,
   PossessionRow,
 } from "../api/types";
-import { Derived, NumberField, Panel, TextField, signed } from "./fields";
+import { useI18n, useT, type TranslationKey } from "../i18n";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  IconArmorSlot,
+  IconAttack,
+  IconAttacks,
+  IconGear,
+  IconMoney,
+  IconPossessions,
+  IconProtectiveItem,
+  IconShieldSlot,
+} from "./icons";
+import {
+  DecimalField,
+  Derived,
+  Fieldset,
+  Note,
+  NumberField,
+  OptionalNumberField,
+  Panel,
+  Row,
+  TextField,
+  TotalsRow,
+  controlClass,
+  numberClass,
+  signed,
+} from "./fields";
 
 interface Props {
   draft: CharacterBody;
@@ -17,12 +53,17 @@ interface Props {
   update: (changes: Partial<CharacterBody>) => void;
 }
 
-const SLOTS: { slot: ArmorSlot; label: string; full: boolean }[] = [
-  { slot: "armor", label: "Armour", full: true },
-  { slot: "shield", label: "Shield", full: true },
-  { slot: "protective_1", label: "Protective item", full: false },
-  { slot: "protective_2", label: "Protective item", full: false },
-];
+const SLOTS = [
+  { slot: "armor", label: "gear.slot.armour", icon: <IconArmorSlot />, full: true },
+  { slot: "shield", label: "gear.slot.shield", icon: <IconShieldSlot />, full: true },
+  { slot: "protective_1", label: "gear.slot.protective", icon: <IconProtectiveItem />, full: false },
+  { slot: "protective_2", label: "gear.slot.protective", icon: <IconProtectiveItem />, full: false },
+] as const satisfies readonly {
+  slot: ArmorSlot;
+  label: TranslationKey;
+  icon: ReactNode;
+  full: boolean;
+}[];
 
 const EMPTY_PIECE = {
   name: "",
@@ -36,7 +77,11 @@ const EMPTY_PIECE = {
   special_properties: "",
 };
 
+const HEAD = "h-8 px-1.5 text-[0.68rem] font-medium uppercase tracking-[0.05em] text-muted-foreground";
+const CELL = "px-1.5 py-0.5";
+
 export function GearSlots({ draft, derived, update }: Props) {
+  const t = useT();
   const pieces = draft.armor ?? [];
   const find = (slot: ArmorSlot): ArmorRow | undefined => pieces.find((p) => p.slot === slot);
 
@@ -57,105 +102,96 @@ export function GearSlots({ draft, derived, update }: Props) {
   };
 
   return (
-    <Panel title="Gear">
-      <p className="panel__note">
-        Check penalties are written as they appear on the armour table — full plate is −6, not 6.
-        Total applied: {signed(derived.armor_check_penalty)}.
-      </p>
+    <Panel title={t("panel.gear")} icon={<IconGear />}>
+      <Note>{t("gear.note", { total: signed(derived.armor_check_penalty) })}</Note>
 
-      {SLOTS.map(({ slot, label, full }) => {
-        const piece = find(slot);
-        return (
-          <fieldset key={slot} className="gear-slot">
-            <legend>{label}</legend>
-            <div className="row">
-              <TextField
-                label="Name"
-                value={piece?.name ?? ""}
-                onChange={(name) => change(slot, { name })}
-              />
-              {full && (
+      <div className="mt-3">
+        {SLOTS.map(({ slot, label, icon, full }) => {
+          const piece = find(slot);
+          return (
+            <Fieldset key={slot} legend={t(label)} icon={icon}>
+              <Row>
                 <TextField
-                  label="Type"
-                  value={piece?.type ?? ""}
-                  onChange={(type) => change(slot, { type })}
+                  label={t("gear.name")}
+                  value={piece?.name ?? ""}
+                  onChange={(name) => change(slot, { name })}
                 />
-              )}
-              <NumberField
-                label="AC bonus"
-                value={piece?.ac_bonus ?? 0}
-                onChange={(ac_bonus) => change(slot, { ac_bonus })}
-                compact
-              />
-              {full && (
-                <>
-                  <label className="field field--compact">
-                    <span className="field__label">Max Dex</span>
-                    <input
-                      className="field__input field__input--number"
-                      type="number"
-                      value={piece?.max_dex ?? ""}
-                      onChange={(event) =>
-                        change(slot, {
-                          max_dex: event.target.value === "" ? null : Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                  <NumberField
-                    label="Check penalty"
-                    value={piece?.check_penalty ?? 0}
-                    max={0}
-                    onChange={(check_penalty) => change(slot, { check_penalty })}
-                    compact
-                  />
-                  <NumberField
-                    label="Spell failure %"
-                    value={piece?.spell_failure ?? 0}
-                    onChange={(spell_failure) => change(slot, { spell_failure })}
-                    compact
-                  />
+                {full && (
                   <TextField
-                    label="Speed"
-                    value={piece?.speed ?? ""}
-                    onChange={(speed) => change(slot, { speed })}
+                    label={t("gear.type")}
+                    value={piece?.type ?? ""}
+                    onChange={(type) => change(slot, { type })}
                   />
-                </>
-              )}
-              <label className="field field--compact">
-                <span className="field__label">Weight</span>
-                <input
-                  className="field__input field__input--number"
-                  type="text"
-                  inputMode="decimal"
-                  value={String(piece?.weight ?? "0")}
-                  onChange={(event) => change(slot, { weight: event.target.value })}
+                )}
+                <NumberField
+                  label={t("gear.acBonus")}
+                  value={piece?.ac_bonus ?? 0}
+                  onChange={(ac_bonus) => change(slot, { ac_bonus })}
+                  compact
                 />
-              </label>
-              <TextField
-                label="Special properties"
-                value={piece?.special_properties ?? ""}
-                onChange={(special_properties) => change(slot, { special_properties })}
-                wide
-              />
-              {piece !== undefined && (
-                <button
-                  type="button"
-                  className="button button--quiet"
-                  onClick={() => clear(slot)}
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          </fieldset>
-        );
-      })}
+                {full && (
+                  <>
+                    <OptionalNumberField
+                      label={t("gear.maxDex")}
+                      value={piece?.max_dex ?? null}
+                      onChange={(max_dex) => change(slot, { max_dex })}
+                    />
+                    <NumberField
+                      label={t("gear.checkPenalty")}
+                      value={piece?.check_penalty ?? 0}
+                      max={0}
+                      onChange={(check_penalty) => change(slot, { check_penalty })}
+                      compact
+                    />
+                    <NumberField
+                      label={t("gear.spellFailure")}
+                      value={piece?.spell_failure ?? 0}
+                      onChange={(spell_failure) => change(slot, { spell_failure })}
+                      compact
+                    />
+                    <TextField
+                      label={t("gear.speed")}
+                      value={piece?.speed ?? ""}
+                      onChange={(speed) => change(slot, { speed })}
+                    />
+                  </>
+                )}
+                <DecimalField
+                  label={t("gear.weight")}
+                  value={String(piece?.weight ?? "0")}
+                  onChange={(weight) => change(slot, { weight })}
+                  compact
+                />
+                <TextField
+                  label={t("gear.special")}
+                  value={piece?.special_properties ?? ""}
+                  onChange={(special_properties) => change(slot, { special_properties })}
+                  wide
+                />
+                {piece !== undefined && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => clear(slot)}
+                  >
+                    {t("gear.remove")}
+                  </Button>
+                )}
+              </Row>
+            </Fieldset>
+          );
+        })}
+      </div>
     </Panel>
   );
 }
 
 export function PossessionsBlock({ draft, derived, update }: Props) {
+  // Every figure in the totals below is a weight the engine returned, written in the unit the
+  // reader reads in — pounds in English, kilograms in French. The rows above them are what the
+  // player typed and stay in the engine's pounds, which is why the column says so.
+  const { t, weight } = useI18n();
   const rows = draft.possessions ?? [];
   const load = derived.encumbrance;
 
@@ -168,119 +204,132 @@ export function PossessionsBlock({ draft, derived, update }: Props) {
   };
 
   return (
-    <Panel title="Possessions">
-      <table className="possessions">
-        <thead>
-          <tr>
-            <th scope="col">Item</th>
-            <th scope="col" title="Rulebook page reference">
-              Pg.
-            </th>
-            <th scope="col">Weight</th>
-            <th scope="col" />
-          </tr>
-        </thead>
-        <tbody>
+    <Panel title={t("panel.possessions")} icon={<IconPossessions />}>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col" className={HEAD}>
+              {t("possessions.head.item")}
+            </TableHead>
+            <TableHead scope="col" className={HEAD} title={t("possessions.head.page.title")}>
+              {t("possessions.head.page")}
+            </TableHead>
+            <TableHead scope="col" className={HEAD}>
+              {t("possessions.head.weight")}
+            </TableHead>
+            <TableHead scope="col" className={HEAD} />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((row, index) => (
-            <tr key={index}>
-              <td>
-                <input
+            <TableRow key={index}>
+              <TableCell className={CELL}>
+                <Input
                   type="text"
-                  aria-label={`Possession ${index + 1} item`}
+                  className={controlClass}
+                  aria-label={t("possessions.aria.item", { n: index + 1 })}
                   value={row.item ?? ""}
                   onChange={(event) => change(index, { item: event.target.value })}
                 />
-              </td>
-              <td>
-                <input
+              </TableCell>
+              <TableCell className={CELL}>
+                <Input
                   type="text"
-                  className="possessions__page"
-                  aria-label={`Possession ${index + 1} page`}
+                  className={`${numberClass} max-w-16`}
+                  aria-label={t("possessions.aria.page", { n: index + 1 })}
                   value={row.page ?? ""}
                   onChange={(event) => change(index, { page: event.target.value })}
                 />
-              </td>
-              <td>
-                <input
+              </TableCell>
+              <TableCell className={CELL}>
+                <Input
                   type="text"
                   inputMode="decimal"
-                  className="possessions__weight"
-                  aria-label={`Possession ${index + 1} weight`}
+                  className={`${numberClass} max-w-20`}
+                  aria-label={t("possessions.aria.weight", { n: index + 1 })}
                   value={String(row.weight ?? "0")}
                   onChange={(event) => change(index, { weight: event.target.value })}
                 />
-              </td>
-              <td>
-                <button
+              </TableCell>
+              <TableCell className={CELL}>
+                <Button
                   type="button"
-                  className="button button--quiet"
-                  aria-label={`Remove possession ${index + 1}`}
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("possessions.aria.remove", { n: index + 1 })}
                   onClick={() =>
                     update({ possessions: rows.filter((_, position) => position !== index) })
                   }
                 >
                   ×
-                </button>
-              </td>
-            </tr>
+                </Button>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
 
-      <button
+      <Button
         type="button"
-        className="button button--quiet"
+        variant="outline"
+        size="sm"
+        className="my-3"
         onClick={() => update({ possessions: [...rows, { item: "", page: "", weight: "0" }] })}
       >
-        Add an item
-      </button>
+        {t("possessions.add")}
+      </Button>
 
-      <div className="row row--totals">
-        <Derived label="Total weight carried" value={`${load.carried_weight} lb.`} emphasis />
-        <Derived label="Load" value={load.category} emphasis />
-      </div>
-      <div className="row">
-        <Derived label="Light load" value={`${load.light_load} lb.`} />
-        <Derived label="Medium load" value={`${load.medium_load} lb.`} />
-        <Derived label="Heavy load" value={`${load.heavy_load} lb.`} />
-        <Derived label="Lift over head" value={`${load.lift_over_head} lb.`} />
-        <Derived label="Lift off ground" value={`${load.lift_off_ground} lb.`} />
-        <Derived label="Push or drag" value={`${load.push_or_drag} lb.`} />
-      </div>
-      <p className="panel__note">
-        The weight on the identity line is the character&rsquo;s own weight and plays no part in
-        this.
-      </p>
+      <TotalsRow>
+        <Derived
+          label={t("possessions.totalWeight")}
+          value={weight(load.carried_weight)}
+          emphasis
+        />
+        {/* `category` is one of four values the engine decided; the word for it is translated,
+            the decision is not re-made here. */}
+        <Derived label={t("possessions.load")} value={t(`load.${load.category}`)} emphasis />
+      </TotalsRow>
+      <Row>
+        <Derived label={t("possessions.lightLoad")} value={weight(load.light_load)} />
+        <Derived label={t("possessions.mediumLoad")} value={weight(load.medium_load)} />
+        <Derived label={t("possessions.heavyLoad")} value={weight(load.heavy_load)} />
+        <Derived label={t("possessions.liftOverHead")} value={weight(load.lift_over_head)} />
+        <Derived label={t("possessions.liftOffGround")} value={weight(load.lift_off_ground)} />
+        <Derived label={t("possessions.pushOrDrag")} value={weight(load.push_or_drag)} />
+      </Row>
+      <Note>{t("possessions.note")}</Note>
     </Panel>
   );
 }
 
 export function MoneyBlock({ draft, update }: Props) {
+  const t = useT();
   return (
-    <Panel title="Money">
-      <div className="row">
+    <Panel title={t("panel.money")} icon={<IconMoney />}>
+      <Row>
         {(
           [
-            ["money_pp", "Platinum"],
-            ["money_gp", "Gold"],
-            ["money_sp", "Silver"],
-            ["money_cp", "Copper"],
+            ["money_pp", "money.platinum"],
+            ["money_gp", "money.gold"],
+            ["money_sp", "money.silver"],
+            ["money_cp", "money.copper"],
           ] as const
         ).map(([field, label]) => (
           <NumberField
             key={field}
-            label={label}
+            label={t(label)}
             value={draft[field] ?? 0}
             onChange={(value) => update({ [field]: value })}
             compact
           />
         ))}
-      </div>
+      </Row>
     </Panel>
   );
 }
 
 export function AttacksBlock({ draft, update }: Props) {
+  const t = useT();
   const rows = draft.attacks ?? [];
 
   const change = (index: number, changes: Partial<AttackRow>) => {
@@ -290,59 +339,61 @@ export function AttacksBlock({ draft, update }: Props) {
   };
 
   return (
-    <Panel title="Attacks">
-      <p className="panel__note">
-        The attack bonus and damage are written here rather than worked out: deriving them needs
-        weapon data, size modifiers, and iterative attacks from the base attack bonus.
-      </p>
-      {rows.map((row, index) => (
-        <fieldset key={row.id ?? index} className="attack">
-          <legend>Attack {index + 1}</legend>
-          <div className="row">
-            <TextField
-              label="Name"
-              value={row.name ?? ""}
-              onChange={(name) => change(index, { name })}
-            />
-            <TextField
-              label="Attack bonus"
-              value={row.attack_bonus ?? ""}
-              onChange={(attack_bonus) => change(index, { attack_bonus })}
-            />
-            <TextField
-              label="Damage"
-              value={row.damage ?? ""}
-              onChange={(damage) => change(index, { damage })}
-            />
-            <TextField
-              label="Critical"
-              value={row.critical ?? ""}
-              onChange={(critical) => change(index, { critical })}
-            />
-            <TextField
-              label="Range"
-              value={row.range ?? ""}
-              onChange={(range) => change(index, { range })}
-            />
-            <TextField
-              label="Type"
-              value={row.damage_type ?? ""}
-              onChange={(damage_type) => change(index, { damage_type })}
-            />
-            <TextField
-              label="Ammunition"
-              value={row.ammunition ?? ""}
-              onChange={(ammunition) => change(index, { ammunition })}
-            />
-            <TextField
-              label="Notes"
-              value={row.notes ?? ""}
-              onChange={(notes) => change(index, { notes })}
-              wide
-            />
-          </div>
-        </fieldset>
-      ))}
+    <Panel title={t("panel.attacks")} icon={<IconAttacks />}>
+      <Note>{t("attacks.note")}</Note>
+      <div className="mt-3">
+        {rows.map((row, index) => (
+          <Fieldset
+            key={row.id ?? index}
+            legend={t("attacks.legend", { n: index + 1 })}
+            icon={<IconAttack />}
+          >
+            <Row>
+              <TextField
+                label={t("attacks.name")}
+                value={row.name ?? ""}
+                onChange={(name) => change(index, { name })}
+              />
+              <TextField
+                label={t("attacks.attackBonus")}
+                value={row.attack_bonus ?? ""}
+                onChange={(attack_bonus) => change(index, { attack_bonus })}
+              />
+              <TextField
+                label={t("attacks.damage")}
+                value={row.damage ?? ""}
+                onChange={(damage) => change(index, { damage })}
+              />
+              <TextField
+                label={t("attacks.critical")}
+                value={row.critical ?? ""}
+                onChange={(critical) => change(index, { critical })}
+              />
+              <TextField
+                label={t("attacks.range")}
+                value={row.range ?? ""}
+                onChange={(range) => change(index, { range })}
+              />
+              <TextField
+                label={t("attacks.type")}
+                value={row.damage_type ?? ""}
+                onChange={(damage_type) => change(index, { damage_type })}
+              />
+              <TextField
+                label={t("attacks.ammunition")}
+                value={row.ammunition ?? ""}
+                onChange={(ammunition) => change(index, { ammunition })}
+              />
+              <TextField
+                label={t("attacks.notes")}
+                value={row.notes ?? ""}
+                onChange={(notes) => change(index, { notes })}
+                wide
+              />
+            </Row>
+          </Fieldset>
+        ))}
+      </div>
     </Panel>
   );
 }

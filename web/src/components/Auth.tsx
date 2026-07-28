@@ -1,6 +1,20 @@
 /** Sign in, sign up, email verification, and password reset. */
 import { type FormEvent, useState } from "react";
-import { ApiError, api } from "../api/client";
+import { api } from "../api/client";
+import { errorKey, useT, type TranslationKey } from "../i18n";
+import { LanguageSwitcher } from "./LanguageSwitcher";
+import { FieldLabel, controlClass } from "./fields";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Mode = "login" | "register" | "forgot";
 
@@ -8,18 +22,26 @@ interface Props {
   onSignedIn: () => void;
 }
 
-function message(error: unknown): string {
-  if (error instanceof ApiError) return error.message;
-  return "Something went wrong. Please try again.";
-}
-
+/**
+ * One form serves all three modes rather than one per tab: an address typed on the sign-in tab
+ * should still be there after a detour through "forgot password". That is why the form sits
+ * outside `Tabs` — the tab strip only chooses the mode.
+ */
 export function Auth({ onSignedIn }: Props) {
+  const t = useT();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  /**
+   * Held as keys, not as sentences.
+   *
+   * Storing the *result* of `t()` freezes the message in whichever language was on when it was
+   * set, so a user who registers and then reaches for the language switch — which is exactly when
+   * they would — is left reading the one line on the card that did not change.
+   */
+  const [error, setError] = useState<TranslationKey | null>(null);
+  const [notice, setNotice] = useState<TranslationKey | null>(null);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -32,110 +54,105 @@ export function Auth({ onSignedIn }: Props) {
         onSignedIn();
       } else if (mode === "register") {
         await api.register(email, password);
-        setNotice(
-          "Check your email and follow the link to confirm your address. You can sign in once it is confirmed.",
-        );
+        setNotice("auth.notice.registered");
         setMode("login");
       } else {
         await api.forgotPassword(email);
-        setNotice("If that address has an account, a reset link is on its way.");
+        setNotice("auth.notice.reset");
         setMode("login");
       }
     } catch (caught) {
-      setError(message(caught));
+      setError(errorKey(caught));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <section className="auth">
-      <h1>Character sheet manager</h1>
-      <p className="auth__blurb">
-        Keep a D&amp;D 3.5 character sheet that works out its own arithmetic — armour class, saves,
-        skill totals, grapple, initiative, and encumbrance.
-      </p>
+    <Card className="mx-auto my-16 w-full max-w-[27rem]">
+      <CardHeader>
+        {/* The switcher sits on the sign-in card as well as in the signed-in header: a French
+            speaker needs it *before* they have an account, not after. */}
+        <div className="flex items-start justify-between gap-3">
+          <CardTitle asChild>
+            <h1 className="text-xl tracking-tight">{t("app.title")}</h1>
+          </CardTitle>
+          <LanguageSwitcher />
+        </div>
+        <CardDescription>{t("auth.description")}</CardDescription>
+      </CardHeader>
 
-      <nav className="auth__tabs">
-        <button
-          type="button"
-          className={mode === "login" ? "tab tab--active" : "tab"}
-          onClick={() => setMode("login")}
-        >
-          Sign in
-        </button>
-        <button
-          type="button"
-          className={mode === "register" ? "tab tab--active" : "tab"}
-          onClick={() => setMode("register")}
-        >
-          Create an account
-        </button>
-        <button
-          type="button"
-          className={mode === "forgot" ? "tab tab--active" : "tab"}
-          onClick={() => setMode("forgot")}
-        >
-          Forgot password
-        </button>
-      </nav>
+      <CardContent>
+        <Tabs value={mode} onValueChange={(value) => setMode(value as Mode)} className="mb-4">
+          <TabsList variant="line" className="w-full border-b">
+            <TabsTrigger value="login">{t("auth.tab.login")}</TabsTrigger>
+            <TabsTrigger value="register">{t("auth.tab.register")}</TabsTrigger>
+            <TabsTrigger value="forgot">{t("auth.tab.forgot")}</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-      <form className="auth__form" onSubmit={submit}>
-        <label className="field field--wide">
-          <span className="field__label">Email</span>
-          <input
-            className="field__input"
-            type="email"
-            autoComplete="username"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-        </label>
-
-        {mode !== "forgot" && (
-          <label className="field field--wide">
-            <span className="field__label">Password</span>
-            <input
-              className="field__input"
-              type="password"
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
+        <form className="flex flex-col gap-3" onSubmit={submit}>
+          <Label className="flex flex-col items-start gap-1">
+            <FieldLabel>{t("auth.email")}</FieldLabel>
+            <Input
+              type="email"
+              className={controlClass}
+              autoComplete="username"
               required
-              minLength={8}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
             />
-          </label>
-        )}
+          </Label>
 
-        {error !== null && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        {notice !== null && (
-          <p className="notice" role="status">
-            {notice}
-          </p>
-        )}
+          {mode !== "forgot" && (
+            <Label className="flex flex-col items-start gap-1">
+              <FieldLabel>{t("auth.password")}</FieldLabel>
+              <Input
+                type="password"
+                className={controlClass}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                required
+                minLength={8}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </Label>
+          )}
 
-        <button type="submit" className="button" disabled={busy}>
-          {mode === "login" ? "Sign in" : mode === "register" ? "Create account" : "Send reset link"}
-        </button>
-      </form>
-    </section>
+          {error !== null && (
+            <p className="text-sm text-destructive" role="alert">
+              {t(error)}
+            </p>
+          )}
+          {notice !== null && (
+            <p className="text-sm text-ok" role="status">
+              {t(notice)}
+            </p>
+          )}
+
+          <Button type="submit" disabled={busy}>
+            {mode === "login"
+              ? t("auth.submit.login")
+              : mode === "register"
+                ? t("auth.submit.register")
+                : t("auth.submit.forgot")}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
 /** Handles the `?token=` links sent by email for verification and password reset. */
 export function TokenLanding({ onDone }: { onDone: () => void }) {
+  const t = useT();
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token") ?? "";
   const isReset = window.location.pathname.includes("reset-password");
 
   const [password, setPassword] = useState("");
   const [state, setState] = useState<"idle" | "busy" | "done" | "failed">("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<TranslationKey | null>(null);
 
   const run = async (event: FormEvent) => {
     event.preventDefault();
@@ -145,49 +162,65 @@ export function TokenLanding({ onDone }: { onDone: () => void }) {
       else await api.verify(token);
       setState("done");
     } catch (caught) {
-      setError(message(caught));
+      setError(errorKey(caught));
       setState("failed");
     }
   };
 
   if (state === "done") {
     return (
-      <section className="auth">
-        <h1>{isReset ? "Password changed" : "Address confirmed"}</h1>
-        <button type="button" className="button" onClick={onDone}>
-          Sign in
-        </button>
-      </section>
+      <Card className="mx-auto my-16 w-full max-w-[27rem]">
+        <CardHeader>
+          <CardTitle asChild>
+            <h1 className="text-xl tracking-tight">
+              {isReset ? t("auth.landing.passwordChanged") : t("auth.landing.addressConfirmed")}
+            </h1>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button type="button" onClick={onDone}>
+            {t("auth.landing.signIn")}
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <section className="auth">
-      <h1>{isReset ? "Choose a new password" : "Confirm your address"}</h1>
-      <form className="auth__form" onSubmit={run}>
-        {isReset && (
-          <label className="field field--wide">
-            <span className="field__label">New password</span>
-            <input
-              className="field__input"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </label>
-        )}
-        {error !== null && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        <button type="submit" className="button" disabled={state === "busy"}>
-          {isReset ? "Set password" : "Confirm"}
-        </button>
-      </form>
-    </section>
+    <Card className="mx-auto my-16 w-full max-w-[27rem]">
+      <CardHeader>
+        <CardTitle asChild>
+          <h1 className="text-xl tracking-tight">
+            {isReset ? "Choose a new password" : "Confirm your address"}
+          </h1>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form className="flex flex-col gap-3" onSubmit={run}>
+          {isReset && (
+            <Label className="flex flex-col items-start gap-1">
+              <FieldLabel>{t("auth.newPassword")}</FieldLabel>
+              <Input
+                type="password"
+                className={controlClass}
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </Label>
+          )}
+          {error !== null && (
+            <p className="text-sm text-destructive" role="alert">
+              {t(error)}
+            </p>
+          )}
+          <Button type="submit" disabled={state === "busy"}>
+            {isReset ? t("auth.landing.setPassword") : t("auth.landing.confirm")}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

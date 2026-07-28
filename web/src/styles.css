@@ -4,551 +4,299 @@
  * The sheet's *structure* — which fields exist and how they combine — is mechanical and comes
  * from the SRD. The printed record sheet's design is not reproduced: no black bar headings, no
  * publisher trade dress, no attempt at the original typography.
+ *
+ * The component layer is shadcn/ui (Radix primitives + Tailwind). The tokens below are the
+ * parchment-and-ink palette, expressed in shadcn's variable names so every generated component
+ * picks it up without per-callsite overrides. Three surfaces do the work: the page is a woven
+ * stripe, everything a player *types* sits on a parchment panel above it, and everything the
+ * engine *worked out* sits in the dark rail beside them.
+ *
+ * `pdf/theme.ts` restates these colours for `@react-pdf/renderer`, which lays out against its own
+ * stylesheet and cannot read a custom property. Change a token here and change it there.
+ */
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * The two display faces are self-hosted, for the reason the icons are bundled rather than
+ * fetched: a deployment whose CORS is restricted to its own origin should not put a request to
+ * fonts.gstatic.com on every page load, and should still letter its headings on a network with no
+ * route off site. `@fontsource/*` ships the same OFL woff2 files Google serves, and only the
+ * three weights this design uses reach the bundle.
+ *
+ * The `@font-face` rules are imported from `main.tsx`, not from here: Tailwind resolves this
+ * file's `@import`s with its own resolver, which does not read a bare package specifier. See
+ * FONTS.txt for the licence they ship under.
  */
 
+@custom-variant dark (&:is(.dark *));
+
 :root {
-  --ink: #23201c;
-  --ink-soft: #6b645b;
-  --paper: #faf8f4;
-  --card: #ffffff;
-  --rule: #e0d9cd;
-  --accent: #6a4c2f;
-  --accent-soft: #f0e7d9;
-  --danger: #9b2c20;
+  --radius: 0.375rem;
+
+  /* The light parchment surface: the nav, the footer, an outline button. */
+  --background: rgba(251, 244, 234, 0.95);
+  --foreground: #2b1f19; /* ink */
+  /*
+   * A panel's face — opaque.
+   *
+   * It used to be translucent so the page's grain read faintly through it. The page is now a fine
+   * woven stripe rather than a mottled hide, and a stripe showing through a panel is a moiré under
+   * every line of text rather than a texture. Opaque also means a value's contrast against its own
+   * panel is one number rather than a range that depends on what it happens to be sitting over.
+   */
+  --card: #fbf4e9;
+  --card-foreground: #2b1f19;
+  --popover: #fdf7ee;
+  --popover-foreground: #2b1f19;
+  --primary: #8a2b1c; /* the sheet's one saturated colour: section glyphs, links, ticked boxes */
+  --primary-foreground: #fdf7ee;
+  --secondary: #f1e2c8; /* darker parchment: panel header bars, derived-value tiles */
+  --secondary-foreground: #2b1f19;
+  --muted: #efdbc4;
+  --muted-foreground: #6d5c50; /* ink-soft */
+  --accent: #eed9c1;
+  --accent-foreground: #2b1f19;
+  --destructive: #9b2c20;
+  --destructive-foreground: #ffffff;
+  --border: #d8c3a8; /* rule */
+  --input: #d8c3a8;
+  --ring: #8a2b1c;
+
+  /* Not part of shadcn's set: the sheet's own semantics. */
   --danger-soft: #fbeae8;
   --ok: #2f6b3f;
-  --radius: 6px;
-  --gap: 0.75rem;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 15px;
-  line-height: 1.45;
-}
-
-h1,
-h2,
-h3 {
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  margin: 0;
-}
-
-a {
-  color: var(--accent);
-}
-
-/* ---------- shell ---------- */
-
-.app__bar {
-  display: flex;
-  align-items: center;
-  gap: var(--gap);
-  padding: 0.6rem 1.25rem;
-  background: var(--card);
-  border-bottom: 1px solid var(--rule);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.app__brand {
-  font-weight: 600;
-}
-
-.app__user {
-  margin-left: auto;
-  color: var(--ink-soft);
-  font-size: 0.85rem;
-}
-
-.app__main {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 1.5rem 1.25rem 4rem;
-}
-
-.app__footer {
-  border-top: 1px solid var(--rule);
-  padding: 1rem 1.25rem;
-  color: var(--ink-soft);
-  font-size: 0.8rem;
-}
-
-.loading,
-.characters__empty {
-  color: var(--ink-soft);
-}
-
-/* ---------- controls ---------- */
-
-.button {
-  font: inherit;
-  padding: 0.4rem 0.9rem;
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: #fff;
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-.button:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.button--quiet {
-  background: transparent;
-  color: var(--accent);
-  border-color: var(--rule);
-}
-
-.tab {
-  font: inherit;
-  padding: 0.35rem 0.75rem;
-  border: 1px solid transparent;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--ink-soft);
-  cursor: pointer;
-}
-
-.tab--active {
-  color: var(--ink);
-  border-bottom-color: var(--accent);
-}
-
-input,
-textarea,
-select {
-  font: inherit;
-  color: inherit;
-  background: var(--card);
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-  padding: 0.3rem 0.4rem;
-  min-width: 0;
-}
-
-input:focus-visible,
-textarea:focus-visible,
-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-/* ---------- fields ---------- */
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 9rem;
-  flex: 1 1 9rem;
-}
-
-.field--compact {
-  min-width: 6rem;
-  flex: 0 1 6rem;
-}
-
-.field--wide {
-  flex: 1 1 100%;
-}
-
-.field__label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-soft);
-}
-
-.field__input--number {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.field__input--area {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85rem;
-}
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--gap);
-  align-items: flex-end;
-}
-
-.row--totals {
-  margin-bottom: var(--gap);
-}
-
-.derived {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.3rem 0.6rem;
-  background: var(--accent-soft);
-  border-radius: var(--radius);
-  min-width: 6rem;
-}
-
-.derived__label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-soft);
-}
-
-.derived__value {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.derived--total .derived__value {
-  font-size: 1.6rem;
-  line-height: 1.1;
-}
-
-/* ---------- panels ---------- */
-
-.panel {
-  background: var(--card);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  margin-bottom: 1rem;
-  overflow: hidden;
-}
-
-.panel__title {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.5rem 0.9rem;
-  background: var(--accent-soft);
-  border-bottom: 1px solid var(--rule);
-}
-
-.panel__body {
-  padding: 0.9rem;
-}
-
-.panel__note {
-  margin: 0.6rem 0 0;
-  font-size: 0.8rem;
-  color: var(--ink-soft);
-}
-
-fieldset {
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  margin: 0 0 var(--gap);
-  padding: 0.6rem 0.75rem;
-}
-
-legend {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-soft);
-  padding: 0 0.3rem;
-}
-
-/* ---------- sheet ---------- */
-
-.sheet__header {
-  display: flex;
-  align-items: baseline;
-  gap: var(--gap);
-  flex-wrap: wrap;
-  margin-bottom: 0.75rem;
-}
-
-.sheet__level {
-  color: var(--ink-soft);
-  font-size: 0.85rem;
-}
-
-.sheet__page-title {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--ink-soft);
-  margin: 1.5rem 0 0.6rem;
-}
-
-/* ---------- tables ---------- */
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
-}
-
-th,
-td {
-  text-align: left;
-  padding: 0.2rem 0.35rem;
-  border-bottom: 1px solid var(--rule);
-}
-
-thead th {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--ink-soft);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-table input[type="number"],
-table input[type="text"] {
-  width: 100%;
-  text-align: right;
-}
-
-.abilities input {
-  max-width: 5rem;
-}
-
-.abilities__name {
-  font-weight: 600;
-}
-
-.abilities__modifier,
-.saves__total,
-.skills__total {
-  display: block;
-  text-align: right;
-  font-weight: 600;
-}
-
-.saves__ability {
-  display: block;
-  font-size: 0.68rem;
-  font-weight: 400;
-  color: var(--ink-soft);
-}
-
-.saves__ability-modifier,
-.skills__component {
-  display: block;
-  text-align: right;
-  color: var(--ink-soft);
-}
-
-.skills__name {
-  min-width: 14rem;
-}
-
-.skills__name input {
-  text-align: left;
-}
-
-.skills__specialization {
-  margin-left: 0.4rem;
-  max-width: 10rem;
-}
-
-.skills__flag {
-  margin-left: 0.3rem;
-  font-size: 0.7rem;
-  color: var(--accent);
-  border: none;
-  text-decoration: none;
-}
-
-.skills__row--untrained {
-  color: var(--ink-soft);
-}
-
-.skills__ranks,
-.skills__misc {
-  max-width: 4.5rem;
-}
-
-.skills__key {
-  color: var(--ink-soft);
-  font-size: 0.75rem;
-}
-
-.possessions__page,
-.references__page {
-  max-width: 4rem;
-}
-
-.possessions__weight {
-  max-width: 5rem;
-}
-
-.possessions input[type="text"]:first-child {
-  text-align: left;
-}
-
-.languages {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.languages li {
-  display: flex;
-  gap: 0.2rem;
-}
-
-/* ---------- banners ---------- */
-
-.banner {
-  display: flex;
-  align-items: center;
-  gap: var(--gap);
-  padding: 0.5rem 0.9rem;
-  border-radius: var(--radius);
-  margin-bottom: 0.75rem;
-  font-size: 0.85rem;
-}
-
-.banner--quiet {
-  background: var(--card);
-  border: 1px solid var(--rule);
-  color: var(--ink-soft);
-}
-
-/* Persistent by design: it stays until the save succeeds. */
-.banner--error {
-  background: var(--danger-soft);
-  border: 1px solid var(--danger);
-  color: var(--danger);
-}
-
-.warnings {
-  background: var(--card);
-  border: 1px solid var(--rule);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius);
-  padding: 0.6rem 0.9rem;
-  margin-bottom: 1rem;
-}
-
-.warnings h2 {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-soft);
-}
-
-.warnings ul {
-  margin: 0.4rem 0 0;
-  padding-left: 1.1rem;
-  font-size: 0.87rem;
-}
-
-.warnings__note {
-  margin: 0.4rem 0 0;
-  font-size: 0.78rem;
-  color: var(--ink-soft);
-}
-
-.error {
-  color: var(--danger);
-}
-
-.notice {
-  color: var(--ok);
-}
-
-/* ---------- auth and list ---------- */
-
-.auth {
-  max-width: 27rem;
-  margin: 4rem auto;
-  padding: 1.5rem;
-  background: var(--card);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-}
-
-.auth__blurb {
-  color: var(--ink-soft);
-  font-size: 0.9rem;
-}
-
-.auth__tabs {
-  display: flex;
-  gap: 0.2rem;
-  border-bottom: 1px solid var(--rule);
-  margin-bottom: 1rem;
-}
-
-.auth__form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.characters__new {
-  display: flex;
-  gap: var(--gap);
-  align-items: flex-end;
-  margin: 1rem 0 1.5rem;
-}
-
-.characters__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
-}
-
-.characters__list li {
-  display: flex;
-  align-items: center;
-  gap: var(--gap);
-  background: var(--card);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  padding: 0.5rem 0.75rem;
-}
-
-.characters__open {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-  background: none;
-  border: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  padding: 0;
-}
-
-.characters__name {
-  font-weight: 600;
-}
-
-.characters__meta {
-  font-size: 0.8rem;
-  color: var(--ink-soft);
-}
-
-@media (max-width: 720px) {
-  .field,
-  .field--compact {
-    flex-basis: 100%;
+  /*
+   * The quietest ink there is: a field nobody has filled in yet, and the character list's demoted
+   * delete before it is pointed at. It is a step below `--muted-foreground`, which is body text a
+   * reader is expected to read; this is text a reader is expected to skip until they want it.
+   */
+  --ink-faint: #a08e80;
+  /* A field is a lighter well cut into the parchment, so a place to type reads as one. */
+  --field: #ffffff;
+  /* The colour the panel frame is drawn in, and so the colour its headings are lettered in. */
+  --heading: #5c3a24;
+
+  /*
+   * Text laid straight on the page's ground, with no panel under it.
+   *
+   * Almost everything on this sheet sits on parchment and is lettered in `--foreground`, which is
+   * ink. The character list is the exception: its heading, its labels and its status lines sit on
+   * the woven stripe, where ink at #2b1f19 is very nearly invisible. These two are the same
+   * relationship the rail's pair have to their own dark surface — a figure and a label — and they
+   * clear 8:1 and 5:1 against the lightest corner of the ground.
+   *
+   * A region on the ground is what these are for. Do not reach for them inside a panel: the whole
+   * point of the parchment is that what is on it is read in ink.
+   */
+  --on-ground: #f0e2cc;
+  --on-ground-muted: #c9b393;
+
+  /*
+   * The derived rail.
+   *
+   * Its own material — oiled slate, not parchment — because the distinction it carries is the
+   * product's whole point: everything in the rail is a number the engine worked out, and
+   * everything in the scrolling column beside it is a number someone typed. A rail in the same
+   * parchment as the panels would read as one more panel that happens not to scroll.
+   *
+   * They reach one region outside `DerivedRail`: the character list's tiles, whose head band is
+   * slate and carries the character level — every class level added up, and the one figure on that
+   * screen the application worked out rather than the player typing it. That is the material saying
+   * the same thing it says on the sheet, not a second use for a dark colour.
+   *
+   * These are deliberately absent from `pdf/theme.ts`. The export has no sticky region to put a
+   * rail in and lays its derived values out in the printed sheet's own order; restating the rail's
+   * palette there would be a colour scheme with nothing to colour.
+   */
+  --rail: #241a13;
+  --rail-2: #2f231a;
+  --rail-line: #463427;
+  /* A recess cut into the slate — the character list's portrait token sits in one. Darker than
+     `--rail` so a picture reads as set *into* the band rather than laid on top of it. */
+  --rail-well: #1a120c;
+  --rail-foreground: #f0e2cc; /* 12.9:1 on --rail */
+  --rail-muted: #b09b81; /* 6.2:1 on --rail — a label is body text and gets no exemption */
+  --rail-accent: #e0b273; /* the rail's one warm figure: a headline total */
+}
+
+/*
+ * No control in this application adds `.dark` — the sheet is one warm scheme by design. The block
+ * stays because the generated primitives carry `dark:` variants that would otherwise resolve
+ * against nothing, and it is retuned rather than left on the old palette: the same parchment seen
+ * by candle rather than a different design.
+ */
+.dark {
+  --background: rgba(31, 25, 20, 0.94);
+  --foreground: #ece0cd;
+  --card: rgba(38, 30, 24, 0.94);
+  --card-foreground: #ece0cd;
+  --popover: #261e18;
+  --popover-foreground: #ece0cd;
+  --primary: #d08a63;
+  --primary-foreground: #241c16;
+  --secondary: #3a2e24;
+  --secondary-foreground: #ece0cd;
+  --muted: #3a2e24;
+  --muted-foreground: #a89179;
+  --accent: #3a2e24;
+  --accent-foreground: #ece0cd;
+  --destructive: #d4675a;
+  --destructive-foreground: #1a1512;
+  --border: #4a3a2c;
+  --input: #4a3a2c;
+  --ring: #d08a63;
+  --danger-soft: #2e1d1a;
+  --ok: #7fb98e;
+  --field: rgba(255, 255, 255, 0.05);
+  --heading: #cba97f;
+  /* No `--rail-*` here. Unlike the tokens above, which exist so the generated primitives' `dark:`
+     variants resolve against something, nothing in `DerivedRail` carries a `dark:` variant — the
+     rail is already the dark surface, and a second set of values here would be unreachable. */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-danger-soft: var(--danger-soft);
+  --color-ok: var(--ok);
+  --color-ink-faint: var(--ink-faint);
+  --color-field: var(--field);
+  --color-heading: var(--heading);
+  --color-on-ground: var(--on-ground);
+  --color-on-ground-muted: var(--on-ground-muted);
+  --color-rail: var(--rail);
+  --color-rail-2: var(--rail-2);
+  --color-rail-line: var(--rail-line);
+  --color-rail-well: var(--rail-well);
+  --color-rail-foreground: var(--rail-foreground);
+  --color-rail-muted: var(--rail-muted);
+  --color-rail-accent: var(--rail-accent);
+
+  /*
+   * Two display faces, and neither is the body face: the sheet is read at 15px in the reader's own
+   * system sans, which is what keeps forty skill rows legible. `font-heading` letters a section's
+   * name; `font-emblem` is for the SRD mark in the nav and nothing else.
+   */
+  --font-heading: "MedievalSharp", "Cinzel", Georgia, serif;
+  --font-emblem: "Cinzel", Georgia, serif;
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
+
+  body {
+    @apply text-foreground;
+    /*
+     * The page is a fine woven stripe under a corner-weighted scrim.
+     *
+     * It replaces `public/leather.jpg`. The hide was a photograph-like raster at three scales of
+     * blotchiness, and beside the derived rail it was the loudest thing on screen: a dark
+     * instrument and a bright mottled ground competing for the same glance, with the panels
+     * floating between them. A stripe at nine pixels reads as material at arm's length and as flat
+     * colour at reading distance, which is what a background is for. It is two gradients, so it
+     * costs no request, no raster and no licence — and unlike the hide it stays out of the way.
+     *
+     * `fixed`, so the ground stays put while a long possessions list scrolls over it.
+     */
+    background-color: #78421a;
+    background-image:
+      radial-gradient(
+        140% 100% at 70% 0%,
+        rgba(0, 0, 0, 0.22),
+        rgba(0, 0, 0, 0.5)
+      ),
+      repeating-linear-gradient(100deg, #78421a 0 9px, #8b4f21 9px 18px);
+    background-attachment: fixed;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  /* Every number on this sheet lines up in a column; proportional digits make totals unreadable. */
+  input[type="number"],
+  output,
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@utility field-label {
+  @apply text-[0.6rem] font-semibold uppercase tracking-[0.13em] text-muted-foreground;
+}
+
+/*
+ * The same label, for a field that sits on the page's ground rather than on parchment.
+ *
+ * A third sibling of `field-label` and `rail-label` rather than a colour added at the callsite:
+ * `field-label` sets its colour on the span itself, so a `text-on-ground-muted` on the `<Label>`
+ * around it is inherited by nothing and the label stays ink at 1.7:1 on the stripe. The character
+ * list is the only region this is for.
+ */
+@utility ground-label {
+  @apply text-[0.6rem] font-semibold uppercase tracking-[0.13em] text-on-ground-muted;
+}
+
+/*
+ * A label inside the rail.
+ *
+ * The body sans, not `font-emblem`. Cinzel is an inscriptional face and a wide one: set as a
+ * letterspaced 0.62rem label it makes "FLAT-FOOTED" wider than the number underneath it, which is
+ * what forced the armour-class block to stack where the design has it in a row. The rail names a
+ * dozen readings in a 19rem column and wants the narrowest legible label it can get, so it uses
+ * the same face the sheet is read in. `font-heading` still letters the character's name above.
+ *
+ * `text-rail-muted` rather than a dimmed `--rail-foreground`: a read-only value's label is body
+ * text and gets none of the contrast exemption a disabled control would.
+ */
+@utility rail-label {
+  @apply text-[0.62rem] font-semibold uppercase tracking-[0.13em] text-rail-muted;
+}
+
+/*
+ * The bar over a rail section that names a group rather than a single reading — the ability
+ * modifiers, the saving throws. It bleeds to the section's edges, which is what tells a group of
+ * six small cells apart from the one big figure in the block above it.
+ */
+@utility rail-bar {
+  @apply -mx-3.5 -mt-2.5 mb-2 border-b border-rail-line bg-black/25 px-3.5 py-1.5;
+}
+
+/*
+ * A section's name.
+ *
+ * Set rather than lettered. MedievalSharp at 1.2rem made every panel header a piece of scenery the
+ * eye stopped at on the way to the fields, and the sheet has fifteen of them; a small letterspaced
+ * capital reads as a label for what is underneath it and then gets out of the way. `font-heading`
+ * still letters the character's name in the rail, which is the one thing on the page that is a
+ * name rather than a category.
+ *
+ * `uppercase` is a CSS transform and does not touch text content, so the accessible name is
+ * unchanged and every `getByRole("heading", { name: "Skills" })` still matches.
+ */
+@utility panel-title {
+  @apply text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-heading;
 }

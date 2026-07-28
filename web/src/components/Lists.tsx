@@ -1,12 +1,24 @@
 /**
- * Feats, special abilities, languages, class levels, and the spell notes.
+ * Feats, special abilities, languages, and class levels.
  *
- * All stored, none computed. Feats and special abilities keep the sheet's PG. column beside them;
- * spell notes are held verbatim so page-2 data is not lost while spellcasting waits for a later
- * phase.
+ * All stored, none computed. Feats and special abilities keep the sheet's PG. column beside them.
+ * The spell blocks are next door in `Spells.tsx`, which is the same idea at ten times the size.
  */
+import type { ReactNode } from "react";
 import type { CharacterBody, ClassLevelRow, NamedReference } from "../api/types";
-import { NumberField, Panel, TextField } from "./fields";
+import { useT, type TranslationKey } from "../i18n";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { IconClassLevel, IconFeats, IconLanguages, IconSpecialAbilities } from "./icons";
+import { Note, NumberField, Panel, Row, TextField, controlClass, numberClass } from "./fields";
 
 interface Props {
   draft: CharacterBody;
@@ -15,13 +27,26 @@ interface Props {
 
 type ReferenceField = "feats" | "special_abilities";
 
+const HEAD = "h-8 px-1.5 text-[0.68rem] font-medium uppercase tracking-[0.05em] text-muted-foreground";
+const CELL = "px-1.5 py-0.5";
+
+/**
+ * Feats and special abilities are the same table twice.
+ *
+ * The list's own name is part of every control's accessible name — "Feats 2 page" — so the
+ * component takes the *key* and translates it, rather than taking an already-translated string:
+ * the aria templates need the same word the heading uses, in the same language.
+ */
 function ReferenceList({
   draft,
   update,
   field,
   title,
-}: Props & { field: ReferenceField; title: string }) {
+  icon,
+}: Props & { field: ReferenceField; title: TranslationKey; icon: ReactNode }) {
+  const t = useT();
   const rows: NamedReference[] = draft[field] ?? [];
+  const list = t(title);
 
   const change = (index: number, changes: Partial<NamedReference>) => {
     update({
@@ -30,82 +55,97 @@ function ReferenceList({
   };
 
   return (
-    <Panel title={title}>
-      <table className="references">
-        <thead>
-          <tr>
-            <th scope="col">Name</th>
-            <th scope="col" title="Rulebook page reference">
-              Pg.
-            </th>
-            <th scope="col" />
-          </tr>
-        </thead>
-        <tbody>
+    <Panel title={list} icon={icon}>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col" className={HEAD}>
+              {t("lists.head.name")}
+            </TableHead>
+            <TableHead scope="col" className={HEAD} title={t("lists.head.page.title")}>
+              {t("lists.head.page")}
+            </TableHead>
+            <TableHead scope="col" className={HEAD} />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((row, index) => (
-            <tr key={index}>
-              <td>
-                <input
+            <TableRow key={index}>
+              <TableCell className={CELL}>
+                <Input
                   type="text"
-                  aria-label={`${title} ${index + 1} name`}
+                  className={controlClass}
+                  aria-label={t("lists.aria.name", { list, n: index + 1 })}
                   value={row.name ?? ""}
                   onChange={(event) => change(index, { name: event.target.value })}
                 />
-              </td>
-              <td>
-                <input
+              </TableCell>
+              <TableCell className={CELL}>
+                <Input
                   type="text"
-                  className="references__page"
-                  aria-label={`${title} ${index + 1} page`}
+                  className={`${numberClass} max-w-16`}
+                  aria-label={t("lists.aria.page", { list, n: index + 1 })}
                   value={row.page ?? ""}
                   onChange={(event) => change(index, { page: event.target.value })}
                 />
-              </td>
-              <td>
-                <button
+              </TableCell>
+              <TableCell className={CELL}>
+                <Button
                   type="button"
-                  className="button button--quiet"
-                  aria-label={`Remove ${title.toLowerCase()} ${index + 1}`}
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("lists.aria.remove", { list: list.toLowerCase(), n: index + 1 })}
                   onClick={() =>
                     update({ [field]: rows.filter((_, position) => position !== index) })
                   }
                 >
                   ×
-                </button>
-              </td>
-            </tr>
+                </Button>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-      <button
+        </TableBody>
+      </Table>
+      <Button
         type="button"
-        className="button button--quiet"
+        variant="outline"
+        size="sm"
+        className="mt-3"
         onClick={() => update({ [field]: [...rows, { name: "", page: "" }] })}
       >
-        Add
-      </button>
+        {t("lists.add")}
+      </Button>
     </Panel>
   );
 }
 
 export function FeatsBlock(props: Props) {
-  return <ReferenceList {...props} field="feats" title="Feats" />;
+  return <ReferenceList {...props} field="feats" title="panel.feats" icon={<IconFeats />} />;
 }
 
 export function SpecialAbilitiesBlock(props: Props) {
-  return <ReferenceList {...props} field="special_abilities" title="Special abilities" />;
+  return (
+    <ReferenceList
+      {...props}
+      field="special_abilities"
+      title="panel.specialAbilities"
+      icon={<IconSpecialAbilities />}
+    />
+  );
 }
 
 export function LanguagesBlock({ draft, update }: Props) {
+  const t = useT();
   const rows = draft.languages ?? [];
   return (
-    <Panel title="Languages">
-      <ul className="languages">
+    <Panel title={t("panel.languages")} icon={<IconLanguages />}>
+      <ul className="flex list-none flex-wrap gap-2 p-0">
         {rows.map((language, index) => (
-          <li key={index}>
-            <input
+          <li key={index} className="flex items-center gap-1">
+            <Input
               type="text"
-              aria-label={`Language ${index + 1}`}
+              className={`${controlClass} w-40`}
+              aria-label={t("languages.aria.name", { n: index + 1 })}
               value={language}
               onChange={(event) =>
                 update({
@@ -115,31 +155,35 @@ export function LanguagesBlock({ draft, update }: Props) {
                 })
               }
             />
-            <button
+            <Button
               type="button"
-              className="button button--quiet"
-              aria-label={`Remove language ${index + 1}`}
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t("languages.aria.remove", { n: index + 1 })}
               onClick={() =>
                 update({ languages: rows.filter((_, position) => position !== index) })
               }
             >
               ×
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
-      <button
+      <Button
         type="button"
-        className="button button--quiet"
+        variant="outline"
+        size="sm"
+        className="mt-3"
         onClick={() => update({ languages: [...rows, ""] })}
       >
-        Add a language
-      </button>
+        {t("languages.add")}
+      </Button>
     </Panel>
   );
 }
 
 export function ClassLevelsBlock({ draft, update }: Props) {
+  const t = useT();
   const rows = draft.class_levels ?? [];
 
   const change = (index: number, changes: Partial<ClassLevelRow>) => {
@@ -151,70 +195,48 @@ export function ClassLevelsBlock({ draft, update }: Props) {
   };
 
   return (
-    <Panel title="Class and level">
+    <Panel title={t("panel.classLevel")} icon={<IconClassLevel />}>
       {rows.map((row, index) => (
-        <div key={index} className="row">
+        <Row key={index} className="mb-3">
           <TextField
-            label="Class"
+            label={t("classLevels.class")}
             value={row.class_name ?? ""}
             onChange={(class_name) => change(index, { class_name })}
           />
           <NumberField
-            label="Level"
+            label={t("classLevels.level")}
             value={row.level ?? 1}
             min={1}
             onChange={(level) => change(index, { level })}
             compact
           />
-          <button
+          <Button
             type="button"
-            className="button button--quiet"
-            aria-label={`Remove class ${index + 1}`}
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("classLevels.remove", { n: index + 1 })}
             onClick={() =>
               update({ class_levels: rows.filter((_, position) => position !== index) })
             }
           >
             ×
-          </button>
-        </div>
+          </Button>
+        </Row>
       ))}
-      <button
+      <Button
         type="button"
-        className="button button--quiet"
+        variant="outline"
+        size="sm"
         onClick={() =>
           update({
             class_levels: [...rows, { ordinal: rows.length, class_name: "", level: 1 }],
           })
         }
       >
-        Add a class
-      </button>
-      <p className="panel__note">
-        The sum of these levels is the character level that sets the maximum ranks in every skill.
-      </p>
+        {t("classLevels.add")}
+      </Button>
+      <Note>{t("classLevels.note")}</Note>
     </Panel>
   );
 }
 
-export function SpellsBlock({ draft, update }: Props) {
-  const spells = (draft.spells_raw ?? {}) as Record<string, unknown>;
-  const notes = typeof spells.notes === "string" ? spells.notes : "";
-
-  return (
-    <Panel title="Spells">
-      <label className="field field--wide">
-        <span className="field__label">Spells, domains, and specialty school</span>
-        <textarea
-          className="field__input field__input--area"
-          rows={10}
-          value={notes}
-          onChange={(event) => update({ spells_raw: { ...spells, notes: event.target.value } })}
-        />
-      </label>
-      <p className="panel__note">
-        Stored as written. Spells per day, bonus spells, save DCs, and arcane spell failure are not
-        worked out in this phase, so nothing typed here is lost while that waits.
-      </p>
-    </Panel>
-  );
-}
