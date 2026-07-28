@@ -69,11 +69,10 @@ export interface Translator {
    * A weight the engine worked out, written with the unit this locale reads in — `50 lb.` in
    * English, `25 kg` in French.
    *
-   * **Display only, and only for weights that came *out* of the engine.** The engine works in the
-   * SRD's pounds and every weight the player types is a pound: nothing converted here may reach the
-   * draft, a `PATCH`, or a `/api/derive` body, for the same reason the skills table's sorted
-   * position never reaches a write. Converting a typed field would mean converting back on save,
-   * and a 5 lb item that round-trips through a float comes back 4.9.
+   * **Display only.** It rounds — `maximumFractionDigits: 1` — so it must never be the value in an
+   * editable control. A field that reformatted what the player typed through this would quietly
+   * truncate their third decimal. Typed weights convert through `weightInput` / `weightToPounds`
+   * below, which do not round.
    *
    * It lives on the translator rather than in a hook because `web/src/pdf/` renders outside this
    * application's provider tree — the printed sheet and the screen have to reach the same
@@ -86,6 +85,27 @@ export interface Translator {
    * scale cannot be in pounds while the sentence under it is in kilograms.
    */
   weightNumber: (value: number | string) => string;
+  /**
+   * A **stored** weight in pounds, written for the reader to edit in their own unit.
+   *
+   * This is the half of the conversion that `weight` deliberately is not. It returns a bare figure
+   * with the locale's decimal separator and **no rounding and no unit**, because the result goes
+   * into an `<input>` the player is about to change: `Intl.NumberFormat` would settle 0.05 kg to
+   * `0,1` and the next keystroke would store double what was there.
+   *
+   * The round trip is exact, and it is the factor that makes it so. 0.5 is a power of two, so `×`
+   * and `÷` by it are exact in IEEE 754 — no bits are lost — and `String(number)` round-trips a
+   * double without loss. `weightToPounds(weightInput(x))` is `x` for every finite `x`. That is a
+   * property of **this** factor: with the physical 0.45359237 a 5 lb item genuinely would come
+   * back 4.9, which is why converting typed fields used to be forbidden outright.
+   *
+   * Anything that will not parse as a number is passed back **unchanged**, for the reason
+   * `inLocalUnit` passes it through in pounds: a value nobody can read is visible, and a value
+   * silently replaced is not.
+   */
+  weightInput: (pounds: string) => string;
+  /** The inverse of `weightInput`. What a player typed, back in the pounds everything stores. */
+  weightToPounds: (typed: string) => string;
 }
 
 export function translatorFor(locale: Locale): Translator {
@@ -122,6 +142,34 @@ export function translatorFor(locale: Locale): Translator {
     return { figure: decimal.format(pounds * POUNDS_TO_KILOGRAMS), unit: "unit.kg" };
   };
 
+  /**
+   * The two directions of a typed weight.
+   *
+   * They are separate functions rather than one with a factor because their *output separators*
+   * differ, and that asymmetry is the whole point: what the reader edits carries the locale's
+   * separator, and what the draft stores carries a `.` — it is a decimal string bound for a
+   * `PATCH` and `/api/derive`, and the server has no locale. A single helper would have to be told
+   * which way it was going anyway.
+   *
+   * Neither rounds. See `weightInput` on the interface for why the round trip is exact.
+   */
+  const separator = locale === "fr" ? "," : ".";
+
+  const weightInput: Translator["weightInput"] = (pounds) => {
+    if (locale === "en" || pounds.trim() === "") return pounds;
+    // The stored figure is a decimal string and always uses a `.`, whatever the reader writes.
+    const value = Number(pounds.trim());
+    if (!Number.isFinite(value)) return pounds;
+    return String(value * POUNDS_TO_KILOGRAMS).replace(".", separator);
+  };
+
+  const weightToPounds: Translator["weightToPounds"] = (typed) => {
+    if (locale === "en" || typed.trim() === "") return typed;
+    const value = Number(typed.trim().replace(separator, "."));
+    if (!Number.isFinite(value)) return typed;
+    return String(value / POUNDS_TO_KILOGRAMS);
+  };
+
   return {
     locale,
     t,
@@ -132,6 +180,8 @@ export function translatorFor(locale: Locale): Translator {
       return `${figure} ${t(unit)}`;
     },
     weightNumber: (value) => inLocalUnit(value).figure,
+    weightInput,
+    weightToPounds,
   };
 }
 

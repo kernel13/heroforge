@@ -284,11 +284,11 @@ describe("the derived rail", () => {
   /**
    * The other half of the same rule, and the one nothing else guards.
    *
-   * The rail also echoes values the player *typed* — hit points, damage reduction, speed. Those go
-   * through `Reading`, which carries no `aria-label`, precisely because the panel field they echo
-   * already owns that name. Swapping one for a `Derived variant="rail"` looks like a tidy-up and
-   * gives two elements the name "Speed", and the failure then surfaces in whichever suite next
-   * calls `getByLabelText` — a long way from the file that changed.
+   * The rail also echoes values the player *typed* — hit points, the base attack bonus, damage
+   * reduction, speed. Those go through `Reading`, which carries no `aria-label`, precisely because
+   * the panel field they echo already owns that name. Swapping one for a `Derived variant="rail"`
+   * looks like a tidy-up and gives two elements the name "Speed", and the failure then surfaces in
+   * whichever suite next calls `getByLabelText` — a long way from the file that changed.
    */
   it("echoes typed values in the rail without claiming their labels", () => {
     renderSheet();
@@ -299,9 +299,33 @@ describe("the derived rail", () => {
       "Nonlethal damage",
       "Damage reduction",
       "Spell resistance",
+      "Base attack bonus",
     ]) {
       expect(screen.getAllByLabelText(name)).toHaveLength(1);
     }
+  });
+
+  /**
+   * And the figure itself is on screen, on both pages. It has no accessible name to query by — see
+   * above — so it is read by its rail label, which is `rail.baseAttack` rather than the panel
+   * field's key: "Bonus de base à l'attaque" does not fit beside a 1.9rem figure in a 19rem rail.
+   * Page two has no base-attack field at all, which is most of why it is worth carrying here.
+   */
+  it("keeps the base attack bonus in view on both pages", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderSheet();
+
+    const field = screen.getByLabelText("Base attack bonus");
+    await user.clear(field);
+    await user.type(field, "5");
+
+    // The rail reads the draft, not the derived sheet, so it moves with the keystroke rather than
+    // waiting on the 250 ms `POST /api/derive` that `derive` is mocked to answer here anyway.
+    expect(screen.getByText("Base attack").parentElement).toHaveTextContent("+5");
+
+    await user.click(screen.getByRole("tab", { name: "Page 2" }));
+    expect(screen.queryByLabelText("Base attack bonus")).not.toBeInTheDocument();
+    expect(screen.getByText("Base attack").parentElement).toHaveTextContent("+5");
   });
 
   /**
@@ -748,6 +772,161 @@ describe("the portrait frame", () => {
     // here would put an upload on the same screen as the autosave it must never bump.
     renderWithPortrait(null);
     expect(screen.queryByRole("button", { name: /portrait/i })).toBeNull();
+  });
+});
+
+describe("a weight a player types", () => {
+  /**
+   * The unit a weight is *read* in is the reader's; the unit it is *stored* in is the engine's.
+   * Every derived load on this sheet has always been converted for a French reader — what the
+   * player typed was not, so the gear panel asked for pounds directly under a total in kilograms.
+   */
+  it("is read in kilograms in French and still stored in pounds", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderSheet({}, "fr");
+
+    await user.click(screen.getByRole("tab", { name: "Page 2" }));
+
+    await user.click(screen.getByRole("button", { name: "Ajouter un objet" }));
+    const field = screen.getByLabelText("Poids de la possession 1");
+    await user.clear(field);
+    await user.type(field, "2,5");
+    // What is on screen while typing is exactly what was typed — no re-derivation fights the
+    // cursor mid-word — and what leaves for the server is the pounds the engine works in.
+    expect(field).toHaveValue("2,5");
+
+    await waitFor(() => {
+      expect(vi.mocked(api.derive)).toHaveBeenCalled();
+    });
+    const sent = vi.mocked(api.derive).mock.calls.at(-1)?.[0] as {
+      possessions?: { weight?: string }[];
+    };
+    expect(sent.possessions?.[0]?.weight).toBe("5");
+  });
+
+  it("reads the armour slot's weight in kilograms too — the field this was reported against", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderSheet({}, "fr");
+
+    await user.click(screen.getByRole("tab", { name: "Page 2" }));
+
+    // Four slots carry a field labelled "Poids", so the group is what tells them apart — the same
+    // reason a spellcasting block's controls are named from `casterNames()`.
+    const armour = screen.getByRole("group", { name: "Armure" });
+    const field = within(armour).getByLabelText("Poids");
+
+    await user.clear(field);
+    await user.type(field, "25");
+    expect(field).toHaveValue("25");
+
+    await waitFor(() => {
+      expect(vi.mocked(api.derive)).toHaveBeenCalled();
+    });
+    // Full plate is 25 kg in the French rulebooks and 50 lb in the SRD. The reader writes what
+    // their book prints; the engine is sent what it works in.
+    const sent = vi.mocked(api.derive).mock.calls.at(-1)?.[0] as {
+      armor?: { slot?: string; weight?: string }[];
+    };
+    expect(sent.armor?.find((piece) => piece.slot === "armor")?.weight).toBe("50");
+  });
+
+  it("is read in pounds in English, untouched in both directions", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderSheet();
+
+    await user.click(screen.getByRole("tab", { name: "Page 2" }));
+
+    await user.click(screen.getByRole("button", { name: "Add an item" }));
+    const field = screen.getByLabelText("Possession 1 weight");
+    await user.clear(field);
+    await user.type(field, "2.5");
+    expect(field).toHaveValue("2.5");
+  });
+});
+
+describe("the attack blocks", () => {
+  /**
+   * The paper form prints five blocks because paper cannot grow a sixth. This sheet adds and
+   * removes them, so a new character starts with two — and the blocks are rows in the draft, not
+   * a count of how many of a fixed five to draw. These pin that the row a button names is the row
+   * it acts on, which is what a display-only count would quietly get wrong.
+   */
+  function renderWithAttacks(count: number, locale: Locale = "en") {
+    const initial = character({
+      attacks: Array.from({ length: count }, (_, ordinal) => ({
+        ordinal,
+        name: "",
+        attack_bonus: "",
+        damage: "",
+        critical: "",
+        range: "",
+        damage_type: "",
+        ammunition: "",
+        notes: "",
+      })),
+    });
+    return renderIn(
+      <CharacterSheet
+        character={initial}
+        initialDerived={derivedSheet()}
+        definitions={DEFINITIONS}
+        onBack={() => {}}
+      />,
+      locale,
+    );
+  }
+
+  it("shows the blocks the character has, and adds one on request", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderWithAttacks(2);
+
+    expect(screen.getByRole("group", { name: "Attack 2" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Attack 3" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add an attack" }));
+    expect(screen.getByRole("group", { name: "Attack 3" })).toBeInTheDocument();
+  });
+
+  it("removes the block its button names, not the last one", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderWithAttacks(2);
+
+    const second = screen.getByRole("group", { name: "Attack 2" });
+    await user.type(within(second).getByLabelText("Name"), "Sling");
+
+    await user.click(screen.getByRole("button", { name: "Remove attack 1" }));
+
+    // One block left, renumbered — and it is the one that was typed into. Removing by position on
+    // screen rather than by position in the draft is how the wrong weapon disappears.
+    expect(screen.queryByRole("group", { name: "Attack 2" })).not.toBeInTheDocument();
+    const remaining = screen.getByRole("group", { name: "Attack 1" });
+    expect(within(remaining).getByLabelText("Name")).toHaveValue("Sling");
+  });
+
+  it("saves the blocks it has, so a removal is a real row leaving the draft", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderWithAttacks(2);
+
+    await user.click(screen.getByRole("button", { name: "Remove attack 2" }));
+
+    // The `PATCH` is what persists, and the router replaces the attack rows only when the body
+    // carries an `attacks` key at all — so it is the save body, not the 250 ms derive body, that
+    // says a removed block stays removed. The two debounces are separate; this waits out the 2 s.
+    vi.advanceTimersByTime(2500);
+    await waitFor(() => {
+      expect(vi.mocked(api.patchCharacter)).toHaveBeenCalled();
+    });
+    const saved = vi.mocked(api.patchCharacter).mock.calls.at(-1)?.[1] as { attacks?: unknown[] };
+    expect(saved.attacks).toHaveLength(1);
+  });
+
+  it("names both buttons in French", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderWithAttacks(1, "fr");
+
+    expect(screen.getByRole("button", { name: "Retirer l'attaque 1" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ajouter une attaque" }));
+    expect(screen.getByRole("group", { name: "Attaque 2" })).toBeInTheDocument();
   });
 });
 

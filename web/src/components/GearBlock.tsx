@@ -32,7 +32,6 @@ import {
   IconShieldSlot,
 } from "./icons";
 import {
-  DecimalField,
   Derived,
   Fieldset,
   Note,
@@ -42,6 +41,8 @@ import {
   Row,
   TextField,
   TotalsRow,
+  WeightField,
+  WeightInput,
   controlClass,
   numberClass,
   signed,
@@ -156,7 +157,9 @@ export function GearSlots({ draft, derived, update }: Props) {
                     />
                   </>
                 )}
-                <DecimalField
+                {/* Read in the reader's unit, stored in the engine's. The draft still holds
+                    pounds — see `WeightField`. */}
+                <WeightField
                   label={t("gear.weight")}
                   value={String(piece?.weight ?? "0")}
                   onChange={(weight) => change(slot, { weight })}
@@ -242,13 +245,11 @@ export function PossessionsBlock({ draft, derived, update }: Props) {
                 />
               </TableCell>
               <TableCell className={CELL}>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  className={`${numberClass} max-w-20`}
-                  aria-label={t("possessions.aria.weight", { n: index + 1 })}
+                <WeightInput
+                  className="max-w-20"
+                  label={t("possessions.aria.weight", { n: index + 1 })}
                   value={String(row.weight ?? "0")}
-                  onChange={(event) => change(index, { weight: event.target.value })}
+                  onChange={(weight) => change(index, { weight })}
                 />
               </TableCell>
               <TableCell className={CELL}>
@@ -328,6 +329,37 @@ export function MoneyBlock({ draft, update }: Props) {
   );
 }
 
+/**
+ * A new block, every field written out rather than left off.
+ *
+ * `AttackRow` comes from the OpenAPI schema, where a field with a server-side default is still a
+ * required key — and every one of these is a *string*, which is what a blank box is on this form.
+ * An added block whose fields were `undefined` would make each control uncontrolled until it was
+ * first typed into.
+ */
+function blankAttack(ordinal: number): AttackRow {
+  return {
+    ordinal,
+    name: "",
+    attack_bonus: "",
+    damage: "",
+    critical: "",
+    range: "",
+    damage_type: "",
+    ammunition: "",
+    notes: "",
+  };
+}
+
+/**
+ * The ATTACK blocks — as many as the character has, not as many as paper prints.
+ *
+ * The form prints five because a printed sheet cannot grow one; this one adds and removes them,
+ * so a new character starts with two and the panel stays the size of what is in it. The blocks
+ * are real rows in the draft, added and removed there rather than a count of how many of five to
+ * show: a rendered list that disagrees with `draft.attacks` is how a keystroke lands in the wrong
+ * block, and the export already drops the blank ones.
+ */
 export function AttacksBlock({ draft, update }: Props) {
   const t = useT();
   const rows = draft.attacks ?? [];
@@ -384,6 +416,23 @@ export function AttacksBlock({ draft, update }: Props) {
                 value={row.ammunition ?? ""}
                 onChange={(ammunition) => change(index, { ammunition })}
               />
+              {/* Before the notes field, not after it. The row is `flex-wrap` and `notes` is
+                  `wide`, so a button trailing it lands alone on a line of its own — which is not
+                  where `ClassLevelsBlock` puts it, and reads as a control belonging to the block
+                  below. The block's own number is the whole of this button's name, as it is for
+                  the class-level and possession rows: it is unlabelled in the row and names the
+                  thing it removes instead. */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t("attacks.remove", { n: index + 1 })}
+                onClick={() =>
+                  update({ attacks: rows.filter((_, position) => position !== index) })
+                }
+              >
+                ×
+              </Button>
               <TextField
                 label={t("attacks.notes")}
                 value={row.notes ?? ""}
@@ -394,6 +443,14 @@ export function AttacksBlock({ draft, update }: Props) {
           </Fieldset>
         ))}
       </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => update({ attacks: [...rows, blankAttack(rows.length)] })}
+      >
+        {t("attacks.add")}
+      </Button>
     </Panel>
   );
 }

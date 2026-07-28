@@ -10,8 +10,9 @@
  * implicit label association rather than from hand-managed `id`/`htmlFor` pairs. A sheet this
  * dense would otherwise need a generated id for each of some two hundred controls.
  */
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { cva } from "class-variance-authority";
+import { useI18n } from "../i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -185,6 +186,90 @@ export function DecimalField({ label, value, onChange, compact }: DecimalFieldPr
         inputMode="decimal"
         value={value}
         onChange={(event) => onChange(event.target.value)}
+      />
+    </Label>
+  );
+}
+
+/**
+ * A weight the player types, read and written in the reader's own unit.
+ *
+ * The value in the draft is **always pounds** — that is what the engine works in, what a `PATCH`
+ * carries, and what `/api/derive` is sent. What the reader sees is that figure through
+ * `weightInput()`, and what they type comes back through `weightToPounds()`. Neither rounds, and
+ * the factor is a power of two, so the round trip is exact; `translate.ts` says why at length.
+ *
+ * **The local buffer is the load-bearing part.** A controlled input whose value is re-derived from
+ * the draft on every keystroke fights the person typing into it: entering `2,5` in French means
+ * passing through `2,`, which parses as 2, stores 4 lb, and re-renders as `2` — deleting the comma
+ * from under the cursor. So while the field has focus, what is on screen is exactly what was typed
+ * and nothing rewrites it; the draft is still updated on every keystroke, so autosave and the
+ * derive debounce behave as they do everywhere else. On blur the buffer is dropped and the field
+ * goes back to showing the stored figure, which is what canonicalises `2,50` to `2,5`.
+ */
+function useWeightBuffer(value: string, onChange: (pounds: string) => void) {
+  const { weightInput, weightToPounds } = useI18n();
+  const [typed, setTyped] = useState<string | null>(null);
+
+  return {
+    value: typed ?? weightInput(value),
+    onChange: (next: string) => {
+      setTyped(next);
+      onChange(weightToPounds(next));
+    },
+    onBlur: () => setTyped(null),
+  };
+}
+
+/** The bare control, for a table cell that supplies its own accessible name. */
+export function WeightInput({
+  value,
+  onChange,
+  label,
+  className,
+}: {
+  value: string;
+  onChange: (pounds: string) => void;
+  label: string;
+  className?: string;
+}) {
+  const bound = useWeightBuffer(value, onChange);
+  return (
+    <Input
+      type="text"
+      inputMode="decimal"
+      className={cn(numberClass, className)}
+      aria-label={label}
+      value={bound.value}
+      onChange={(event) => bound.onChange(event.target.value)}
+      onBlur={bound.onBlur}
+    />
+  );
+}
+
+/** The same control as a labelled field, where `DecimalField` would otherwise be reached for. */
+export function WeightField({
+  label,
+  value,
+  onChange,
+  compact,
+}: {
+  label: string;
+  value: string;
+  onChange: (pounds: string) => void;
+  compact?: boolean;
+}) {
+  const bound = useWeightBuffer(value, onChange);
+  return (
+    <Label className={field({ width: compact === true ? "compact" : "default" })}>
+      <FieldLabel>{label}</FieldLabel>
+      <Input
+        className={numberClass}
+        type="text"
+        inputMode="decimal"
+        value={bound.value}
+        onChange={(event) => bound.onChange(event.target.value)}
+        onBlur={bound.onBlur}
       />
     </Label>
   );

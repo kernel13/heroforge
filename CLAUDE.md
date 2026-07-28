@@ -187,6 +187,17 @@ never planned: dice rolling, party/DM features, character sharing, a character *
 - `POST /api/characters` **eagerly** inserts one zeroed `character_skills` row per SRD skill (with
   the paper sheet's repeat count for Craft/Knowledge/Perform/Profession). Do not switch to lazy
   creation — it forces reconciliation logic into both the list endpoint and the sheet component.
+- **The attack blocks are not a fixed five.** The paper form prints five because paper cannot grow
+  a sixth; this sheet adds and removes them, so `ATTACK_BLOCKS` seeds **two** and `AttacksBlock`
+  carries an add button and a per-block remove, as `ClassLevelsBlock` does. Two consequences are
+  load-bearing. `replace_attacks` renumbers `ordinal` **from the position sent** rather than
+  keeping the row's own — `Character.attacks` is `order_by` that column, and a client that removes
+  the middle of three blocks and adds one would otherwise send two rows both claiming ordinal 2 and
+  get them back in either order, which reads as one attack's damage under another's name. And the
+  blocks are **rows in the draft**, never a count of how many of five to draw: a rendered list that
+  disagrees with `draft.attacks` puts a keystroke in the wrong block, which is the skills table's
+  sorted-position hazard exactly. Characters made before this keep their five rows — there is no
+  migration, and the remove button is how they are trimmed.
 
 ### Auth (`fastapi-users`) and rate limiting (`slowapi`)
 
@@ -246,14 +257,30 @@ warnings in tokens, the API serves every name it holds, and the client decides w
   and those print the halving, so full plate is 25 kg there and a physically exact 22,7 would read
   as an arithmetic fault in the thing that exists to do the arithmetic. `Intl.NumberFormat` writes
   the separator, for the `Intl.Collator` reason.
-  **Only what came *out* of the engine converts.** `body_weight`, gear `weight` and each
-  possession's `weight` are typed, are pounds, and stay pounds — converting them would mean
-  converting back on save, and a 5 lb item round-tripped through a float returns 4.9. So no
-  converted figure may reach the draft, a `PATCH`, or a `/api/derive` body, and `markerFraction` in
-  `DerivedRail` stays on raw pounds because a ratio is unit-invariant. On screen the French labels
-  of the typed columns say `(lb)`; in the PDF they deliberately do **not** — `pdf.possessions.head.wt`
-  sits in a 28pt column that `Poids (lb)` wraps in, so `pdf.possessions.note` carries the fact
-  instead. Widening that column to make the two agree is a change that has already been considered.
+  **Typed weights convert too, and only through `weightInput` / `weightToPounds`.** Gear `weight`
+  and each possession's `weight` are *read* in the reader's unit and *stored* in pounds — the draft,
+  a `PATCH` and a `/api/derive` body carry pounds and nothing else, so `weightToPounds` is the last
+  thing that runs before a value reaches any of them. `markerFraction` in `DerivedRail` stays on raw
+  pounds because a ratio is unit-invariant.
+  *(This paragraph used to forbid converting typed fields outright, on the grounds that "a 5 lb item
+  round-tripped through a float returns 4.9". That is true of the physical 0.45359237 and **false of
+  the 0.5 this application uses**: a power of two is exact in IEEE 754 and `String(number)`
+  round-trips a double losslessly, so `weightToPounds(weightInput(x)) === x` for every finite `x` —
+  pinned in `i18n.test.ts` down to `0.0001`. The prohibition was guarding a hazard this factor does
+  not have, at the cost of a French gear panel that asked for pounds directly beneath a total in
+  kilograms. **The rule still holds for any factor that is not a power of two**; changing the factor
+  means restoring it.)*
+  **`weight()` and `weightNumber()` may not be used in an editable control** — they carry
+  `maximumFractionDigits: 1`, so a field reformatted through them would silently truncate what the
+  player typed. That rounding is fine for a derived figure and fatal for a typed one, which is why
+  the two paths are separate functions rather than one with a flag.
+  **`WeightField` / `WeightInput` buffer what is being typed.** A controlled input re-derived from
+  the draft on every keystroke fights the typist: `2,5` passes through `2,`, which parses as 2,
+  stores 4 lb and re-renders as `2`, deleting the comma from under the cursor. The buffer holds the
+  raw text while the field has focus and is dropped on blur; the draft still updates per keystroke.
+  **`body_weight` is the deliberate exception.** It is a free-text `TextField` on the identity line,
+  its French label claims no unit, it feeds nothing, and players have been writing whatever they
+  like in it. Converting free text would reinterpret what is already stored — leave it alone.
   Grouping is off (`useGrouping: false`): French would write 2000 lb as `1 000 kg` with a U+202F the
   PDF font need not carry, and English has never grouped a weight.
   A figure that will not parse as a number passes through **in pounds** rather than being
@@ -503,7 +530,8 @@ warnings in tokens, the API serves every name it holds, and the client decides w
 - **Derived and entered are told apart by *place*: `DerivedRail` beside the working column.** The
   rail carries every character-level value the engine worked out — armour class with touch and
   flat-footed, initiative, grapple, the three save totals, the six ability modifiers, hit points,
-  the load — and it is a sibling of the `Tabs`, not a child of a `TabsContent`, so it survives the
+  the base attack bonus, the load — and it is a sibling of the `Tabs`, not a child of a
+  `TabsContent`, so it survives the
   page change and stays put while forty skill rows scroll past. Changing Dexterity at the bottom of
   the skills table and watching armour class move is the product demonstrating itself; before the
   rail it took a scroll.
@@ -536,10 +564,18 @@ warnings in tokens, the API serves every name it holds, and the client decides w
 - Every derived number on screen still goes through `fields.tsx`'s `Derived`, rail included; the
   rail uses its `rail` and `railHeadline` variants. A second component rendering engine output would
   be a second place for the no-rules-math rule to be forgotten. The rail's **`Reading`** is the
-  deliberate opposite: hit points, damage reduction and speed are *typed*, so they are not `Derived`
-  and carry **no `aria-label`** — the panel field they echo already owns that accessible name, and a
-  rail `<output>` labelled "Speed" beside a panel input labelled "Speed" is exactly the collision
-  this layout is otherwise arranged to avoid.
+  deliberate opposite: hit points, the base attack bonus, damage reduction and speed are *typed*, so
+  they are not `Derived` and carry **no `aria-label`** — the panel field they echo already owns that
+  accessible name, and a rail `<output>` labelled "Speed" beside a panel input labelled "Speed" is
+  exactly the collision this layout is otherwise arranged to avoid.
+  **The base attack bonus is the one component printed beside a total it feeds** — it is row one of
+  grapple's disclosure and a headline block directly above it. It is allowed because it is not only
+  a grapple input: it is the base of every attack roll, it is the one control in that panel with no
+  total of its own, and page two shows it nowhere else. Two headline blocks with their own glyphs
+  read as two figures, not as a sum left unfinished. It uses its own **`rail.baseAttack`** key —
+  "Bonus de base à l'attaque" does not fit beside a 1.9rem figure in a 19rem rail, which is
+  `rail.save.*`'s reason exactly — and `IconAttack`, leaving `IconAttacks` paired with grapple's
+  panel legend. Folding it back into the disclosure is the obvious tidy-up.
 - **The rail's gold is an accent, not the colour of derived values.** Headline totals are white with
   a warm glow behind them; `--rail-accent` is spent on the few things that mean something by being
   gold — a *positive* ability modifier, the marker on the load scale, the character's own words in

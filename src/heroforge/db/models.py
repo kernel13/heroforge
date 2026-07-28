@@ -339,7 +339,11 @@ class CharacterArmor(Base):
 
 
 class CharacterAttack(Base):
-    """One of the five ATTACK blocks. ``attack_bonus`` and ``damage`` are text, not derived."""
+    """One ATTACK block. ``attack_bonus`` and ``damage`` are text, not derived.
+
+    There is no fixed number of them: the sheet adds and removes blocks, and ``ordinal`` is
+    rewritten from the order sent on every save.
+    """
 
     __tablename__ = "character_attacks"
 

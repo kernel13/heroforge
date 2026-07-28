@@ -83,8 +83,9 @@ class TestCreate:
         assert count("Profession") == 2
         assert count("Appraise") == 1
 
-    async def test_the_five_attack_blocks_are_created(self, owner: AsyncClient) -> None:
-        assert len((await create(owner))["character"]["attacks"]) == 5
+    async def test_two_attack_blocks_are_created(self, owner: AsyncClient) -> None:
+        """The paper form prints five; the sheet grows, so a new character starts with two."""
+        assert len((await create(owner))["character"]["attacks"]) == 2
 
 
 class TestOwnership:

@@ -170,6 +170,11 @@ export const en = {
   "rail.parts.misc": "Misc",
   "rail.parts.baseAttack": "Base attack bonus",
   "rail.parts.strength": "Strength",
+  // The rail's own short name for the base attack bonus, as `rail.save.*` are for the saves: the
+  // panel field's "Base attack bonus" is 25 characters in French and the headline label has about
+  // 210px beside its figure. The `+` is drawn, so "Base attack" reading "+6" is unambiguous, and
+  // it is the wording `pdf.part.baseAttack` already prints.
+  "rail.baseAttack": "Base attack",
   "rail.hitPoints": "Hit points",
   "rail.hitPoints.ofTotal": "Of total",
   "rail.hitPoints.damageReduction": "DR",
@@ -337,6 +342,8 @@ export const en = {
   "attacks.type": "Type",
   "attacks.ammunition": "Ammunition",
   "attacks.notes": "Notes",
+  "attacks.add": "Add an attack",
+  "attacks.remove": "Remove attack {n}",
 
   // ── Skills ───────────────────────────────────────────────────────────────────────────────
   "skills.head.class": "Class",

@@ -36,8 +36,13 @@ _CHILDREN = (
     selectinload(Character.attacks),
 )
 
-ATTACK_BLOCKS = 5
-"""Page 1 of the paper sheet prints five."""
+ATTACK_BLOCKS = 2
+"""Page 1 of the paper sheet prints five; a new character starts with two.
+
+Paper has to print every block it will ever need, because a sheet cannot grow a sixth. This one
+can: the sheet adds a block on request and removes one, so seeding five spent most of the panel
+on empty frames for the many characters that swing one weapon and throw one dagger.
+"""
 
 
 async def list_characters(session: AsyncSession, owner_id: uuid.UUID) -> Sequence[Character]:
@@ -163,12 +168,20 @@ async def replace_armor(session: AsyncSession, character: Character, rows: Seque
 
 
 async def replace_attacks(session: AsyncSession, character: Character, rows: Sequence[Any]) -> None:
+    """Renumber from the order sent, as ``replace_class_levels`` does.
+
+    ``ordinal`` was taken from the row when it had one, which was safe only while the row count
+    was fixed. The sheet adds and removes blocks now, so a client that removes the middle of
+    three rows and adds one sends two rows both claiming ordinal 2 — and ``Character.attacks``
+    is ``order_by`` that column, so the pair would come back in either order and a player would
+    find one attack's damage under another's name.
+    """
     character.attacks.clear()
     await session.flush()
     for index, row in enumerate(rows):
         character.attacks.append(
             CharacterAttack(
-                ordinal=row.ordinal or index,
+                ordinal=index,
                 name=row.name,
                 attack_bonus=row.attack_bonus,
                 damage=row.damage,

@@ -652,7 +652,7 @@ function SkillsTable({
   );
 }
 
-function Gear({ character, translator: { t } }: Props) {
+function Gear({ character, translator: { t, weightInput } }: Props) {
   return (
     <Section title={t("pdf.section.gear")}>
       {GEAR_SLOTS.map(({ slot, label, full }) => {
@@ -673,9 +673,12 @@ function Gear({ character, translator: { t } }: Props) {
                 flex={1}
                 centred
               />
+              {/* The reader's unit, as on screen. A printout that disagreed with the sheet it
+                  came from about what a breastplate weighs is the drift the shared skill ordering
+                  exists to prevent, one column over. */}
               <Field
                 label={t("gear.weight")}
-                value={String(piece?.weight ?? "0")}
+                value={weightInput(String(piece?.weight ?? "0"))}
                 flex={1}
                 centred
               />
@@ -718,7 +721,11 @@ function Gear({ character, translator: { t } }: Props) {
   );
 }
 
-function Possessions({ character, derived, translator: { t, weight, weightNumber } }: Props) {
+function Possessions({
+  character,
+  derived,
+  translator: { t, weight, weightNumber, weightInput },
+}: Props) {
   const rows = character.possessions ?? [];
   const load = derived.encumbrance;
   return (
@@ -738,7 +745,9 @@ function Possessions({ character, derived, translator: { t, weight, weightNumber
           <Text style={[styles.cellMuted, styles.centred, { width: 22 }]}>
             {blank(row.page, t)}
           </Text>
-          <Text style={[styles.cell, styles.right, { width: 28 }]}>{String(row.weight ?? "0")}</Text>
+          <Text style={[styles.cell, styles.right, { width: 28 }]}>
+            {weightInput(String(row.weight ?? "0"))}
+          </Text>
         </View>
       ))}
       {rows.length === 0 && <Note>{t("pdf.possessions.empty")}</Note>}

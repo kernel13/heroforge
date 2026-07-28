@@ -23,8 +23,10 @@
  * - **Components are behind a disclosure, never beside their total.** A sheet that prints "22"
  *   next to "armour 8, shield 2, Dex 1" at one weight gets read as a sum still to be finished, and
  *   people add it up again. Open on demand, closed by default.
- * - **Nothing here computes.** Every figure is a field of `DerivedSheet`. `signed()` draws a `+`;
- *   it does not add anything.
+ * - **Nothing here computes.** Every *derived* figure is a field of `DerivedSheet`; the typed ones
+ *   the rail also carries — hit points, the base attack bonus, damage reduction, speed — come
+ *   straight off the draft and go through `Reading`. `signed()` draws a `+`; it does not add
+ *   anything.
  */
 import { Fragment, useMemo, type ReactNode } from "react";
 import type { CharacterBody, DerivedSheet, SaveName } from "../api/types";
@@ -36,6 +38,7 @@ import { quietSaveKey } from "./SaveBanner";
 import {
   IconAbilities,
   IconArmorClass,
+  IconAttack,
   IconAttacks,
   IconHitPoints,
   IconInitiative,
@@ -418,9 +421,9 @@ export function DerivedRail({ draft, derived, save }: Props) {
         />
       </RailSection>
 
-      {/* Hit points are the one thing here that is *typed*, not derived — but they are what a
-          player looks at most often mid-session, and the rail is where you look. They carry no
-          `aria-label`: `HitPoints` on page one owns the names "Total" and "Current". */}
+      {/* Hit points are *typed*, not derived — but they are what a player looks at most often
+          mid-session, and the rail is where you look. They carry no `aria-label`: `HitPoints` on
+          page one owns the names "Total" and "Current". */}
       <RailSection>
         <Reading headline icon={<IconHitPoints />} label={t("rail.hitPoints")} value={hpCurrent} />
         <div
@@ -443,6 +446,30 @@ export function DerivedRail({ draft, derived, save }: Props) {
             value={(draft.damage_reduction ?? "").trim() === "" ? "—" : draft.damage_reduction}
           />
         </div>
+      </RailSection>
+
+      {/* The base attack bonus is *typed* — phase 1 has no class progression tables — so it is a
+          `Reading` and carries no `aria-label`: `InitiativeAndGrapple`'s field owns the name "Base
+          attack bonus", and Vitest pins that exactly one element answers to it.
+
+          It sits above grapple and is also row one of grapple's components below, which brushes
+          against the rule that a component never appears beside the total it feeds. It is allowed
+          here because it is not only a grapple input: it is the base of every attack roll a player
+          makes, and it is the one figure in that panel with no total of its own to be read from.
+          Two headline blocks with their own glyphs read as two independent figures rather than as
+          a sum left unfinished — which is what that rule is actually protecting against. Folding
+          it back into the disclosure is the obvious tidy-up; it is a deliberate choice.
+
+          `IconAttack` is the single sword, as the attacks fieldset uses; `IconAttacks` stays on
+          grapple, where it pairs with the panel's own legend so a player can trace this figure
+          back to the box that feeds it. */}
+      <RailSection>
+        <Reading
+          headline
+          icon={<IconAttack />}
+          label={t("rail.baseAttack")}
+          value={signed(draft.base_attack_bonus ?? 0)}
+        />
       </RailSection>
 
       <RailSection>

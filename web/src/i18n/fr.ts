@@ -142,6 +142,7 @@ export const fr: Dictionary = {
   "rail.parts.misc": "Divers",
   "rail.parts.baseAttack": "Bonus de base à l’attaque",
   "rail.parts.strength": "Force",
+  "rail.baseAttack": "Attaque de base",
   "rail.hitPoints": "Points de vie",
   "rail.hitPoints.ofTotal": "Sur",
   "rail.hitPoints.damageReduction": "RD",
@@ -308,6 +309,8 @@ export const fr: Dictionary = {
   "attacks.type": "Type",
   "attacks.ammunition": "Munitions",
   "attacks.notes": "Notes",
+  "attacks.add": "Ajouter une attaque",
+  "attacks.remove": "Retirer l'attaque {n}",
 
   // ── Compétences ──────────────────────────────────────────────────────────────────────────
   "skills.head.class": "Classe",
@@ -363,7 +366,7 @@ export const fr: Dictionary = {
   "gear.checkPenalty": "Malus aux tests",
   "gear.spellFailure": "Risque d'échec des sorts %",
   "gear.speed": "Vitesse",
-  "gear.weight": "Poids (lb)",
+  "gear.weight": "Poids",
   "gear.special": "Propriétés spéciales",
   "gear.remove": "Retirer",
 
@@ -373,7 +376,7 @@ export const fr: Dictionary = {
   "possessions.head.page.title": "Référence de page dans les règles",
   // Le total sous cette colonne est en kilogrammes, mais ce que l'on saisit ici reste en livres —
   // c'est l'unité du moteur de règles. La colonne le dit plutôt que de le laisser deviner.
-  "possessions.head.weight": "Poids (lb)",
+  "possessions.head.weight": "Poids",
   "possessions.aria.item": "Objet {n} de la possession",
   "possessions.aria.page": "Page de la possession {n}",
   "possessions.aria.weight": "Poids de la possession {n}",
@@ -539,7 +542,7 @@ export const fr: Dictionary = {
   "pdf.possessions.empty": "Rien de transporté.",
   "pdf.possessions.head.wt": "Poids",
   "pdf.possessions.note":
-    "Le poids transporté provient des possessions et de l'armure portée, saisies en livres ; les charges ci-dessus sont converties en kilogrammes. Le poids de la ligne d'identité est celui du personnage lui-même et n'y entre pas.",
+    "Le poids transporté provient des possessions et de l'armure portée. Tous les poids sont en kilogrammes, sauf celui de la ligne d'identité, qui est celui du personnage lui-même et n'entre pas dans la charge.",
   "pdf.feats.empty": "Aucun don enregistré.",
   "pdf.specialAbilities.empty": "Aucune capacité spéciale enregistrée.",
   "pdf.languages.empty": "Aucune enregistrée.",

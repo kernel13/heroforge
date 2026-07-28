@@ -131,6 +131,46 @@ describe("the translator", () => {
     expect(weight(2000)).toBe("1000 kg");
   });
 
+  it("converts a typed weight both ways without rounding, and exactly", () => {
+    const { weightInput, weightToPounds } = translatorFor("fr");
+
+    // Read in kilograms, stored in pounds. The stored figure always writes its decimal with a
+    // `.` — it is bound for a PATCH and /api/derive, and the server has no locale.
+    expect(weightInput("50")).toBe("25");
+    expect(weightInput("5")).toBe("2,5");
+    expect(weightToPounds("2,5")).toBe("5");
+    expect(weightToPounds("25")).toBe("50");
+
+    // The round trip is exact for every finite value, which is a property of *this* factor: 0.5 is
+    // a power of two, so neither direction loses a bit. This is the assertion that would fail if
+    // anyone changed the factor to the physical 0.45359237 without noticing what it costs.
+    for (const pounds of ["5", "0.1", "148.5", "0.0001", "2000", "1", "3.75"]) {
+      expect(weightToPounds(weightInput(pounds))).toBe(pounds);
+    }
+
+    // `weight()` rounds to one decimal and is display-only. A typed field must not go through it:
+    // this is the value it would have written into the draft instead.
+    const { weight } = translatorFor("fr");
+    expect(weight("0.0001")).toBe("0 kg");
+    expect(weightInput("0.0001")).toBe("0,00005");
+  });
+
+  it("leaves a typed weight alone in English, and whenever it is not a number", () => {
+    const en = translatorFor("en");
+    // English reads the pounds the engine works in, so neither direction touches the figure.
+    expect(en.weightInput("50")).toBe("50");
+    expect(en.weightToPounds("50")).toBe("50");
+
+    const fr = translatorFor("fr");
+    // A blank box is a real value on this form and must not become a 0.
+    expect(fr.weightInput("")).toBe("");
+    expect(fr.weightToPounds("")).toBe("");
+    // Unparseable text passes through rather than being replaced — a wrong number is visible on
+    // the page, a silently discarded one is not.
+    expect(fr.weightInput("—")).toBe("—");
+    expect(fr.weightToPounds("beaucoup")).toBe("beaucoup");
+  });
+
   it("keeps a weight it cannot read as a number in the unit it arrived in", () => {
     // Relabelling an unparseable figure `kg` is the one failure worth avoiding: a wrong number is
     // visible on the page, a right number under the wrong unit is not.
