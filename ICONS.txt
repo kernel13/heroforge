@@ -1,0 +1,42 @@
+ICON CREDITS
+============
+
+The section icons on the character sheet come from Game-icons.net
+(https://game-icons.net, source at https://github.com/game-icons/icons) and are used under the
+Creative Commons Attribution 3.0 Unported licence (CC BY 3.0):
+
+    https://creativecommons.org/licenses/by/3.0/
+
+They are bundled into this application's JavaScript at build time, one glyph per icon, from the
+`@iconify-json/game-icons` package. No icon is fetched from a third-party server at runtime.
+
+Icons used, with their authors:
+
+    armor-vest ............ Lorc            armour slot
+    backpack .............. Delapouite      possessions
+    breastplate ........... Lorc            gear
+    character ............. Delapouite      character
+    conversation .......... Lorc            languages
+    crossed-swords ........ Lorc            attacks
+    dice-twenty-faces-twenty  Delapouite    the SRD mark in the header
+    dodge ................. Felbrigg        saving throws
+    health-normal ......... Sbed            hit points
+    open-book ............. Lorc            the spellbook page
+    pointy-sword .......... Lorc            an attack
+    power-ring ............ Delapouite      protective item
+    rank-3 ................ Skoll           class and level
+    shield ................ Sbed            armour class, shield slot
+    skills ................ Delapouite      skills
+    sparkles .............. Delapouite      special abilities
+    spell-book ............ Delapouite      spells
+    sprint ................ Lorc            initiative and grapple
+    star-medal ............ Delapouite      feats
+    strong ................ Lorc            abilities
+    treasure-map .......... Lorc            campaign
+    two-coins ............. Delapouite      money
+
+Some icons have been recoloured — CC BY 3.0 permits adaptation, and the shape of each icon is
+otherwise unchanged.
+
+This file is separate from OGL.txt: the icons are not Open Game Content and the System Reference
+Document material is not under CC BY. Neither licence covers the other.

@@ -14,4 +14,8 @@ RUN npx openapi-typescript /openapi.json -o /tmp/schema.d.ts \
 FROM alpine:3
 COPY --from=build /build/dist /dist
 COPY OGL.txt /dist/OGL.txt
+# CC BY 3.0 attribution for the Game-icons.net glyphs bundled into the sheet.
+COPY ICONS.txt /dist/ICONS.txt
+# OFL notice for the two display faces served from this origin rather than from Google Fonts.
+COPY FONTS.txt /dist/FONTS.txt
 CMD ["sh", "-c", "rm -rf /output/* && cp -r /dist/. /output/"]
