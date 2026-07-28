@@ -76,6 +76,11 @@ def derive(character: CharacterInput, skills: Sequence[SkillDefinition]) -> Deri
                     f"Dexterity bonus of +{cap}; AC uses +{dex_to_ac}."
                 ),
                 field="armor",
+                params={
+                    "dex_modifier": str(dex_modifier),
+                    "max_dex": str(cap),
+                    "applied": str(dex_to_ac),
+                },
             )
         )
 
@@ -145,6 +150,7 @@ def derive(character: CharacterInput, skills: Sequence[SkillDefinition]) -> Deri
                     "The character can no longer move under this weight."
                 ),
                 field="possessions",
+                params={"carried_weight": str(weight), "maximum_load": str(limits[2])},
             )
         )
 
@@ -207,6 +213,7 @@ def _derive_skill(
                 code=WarningCode.UNKNOWN_SKILL,
                 message=f"Skill {entry.skill_id} is not in the reference list.",
                 field=entry.key,
+                params={"skill_id": str(entry.skill_id)},
             )
         )
 
@@ -230,6 +237,20 @@ def _derive_skill(
     if entry.ranks > cap:
         kind = "class" if entry.is_class_skill else "cross-class"
         label = f"{name} ({entry.specialization})" if entry.specialization else name
+        # `skill_name` is the fallback for a row the client cannot name itself — a custom row has
+        # no reference identifier to look a translation up by. `kind` is a token, not the English
+        # word: spliced into a French sentence, "cross-class" would read as half a translation.
+        params = {
+            "skill_name": name,
+            "kind": "class" if entry.is_class_skill else "cross_class",
+            "ranks": str(entry.ranks),
+            "max_ranks": str(cap),
+            "character_level": str(character_level),
+        }
+        if entry.skill_id is not None:
+            params["skill_id"] = str(entry.skill_id)
+        if entry.specialization:
+            params["specialization"] = entry.specialization
         warnings.append(
             RuleWarning(
                 code=WarningCode.RANKS_OVER_MAXIMUM,
@@ -238,6 +259,7 @@ def _derive_skill(
                     f"at character level {character_level}."
                 ),
                 field=entry.key,
+                params=params,
             )
         )
 

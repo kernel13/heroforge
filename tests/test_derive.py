@@ -89,10 +89,46 @@ async def test_a_skill_over_its_maximum_is_a_warning_not_a_rejection(user: Async
     sheet = await derive(
         user,
         class_levels=[{"class_name": "Wizard", "level": 1}],
-        skills=[{"skill_id": skills["Spot"], "ranks": "9", "is_class_skill": False}],
+        skills=[{"skill_id": skills["Spot"], "ranks": 9, "is_class_skill": False}],
     )
     assert [w["code"] for w in sheet["warnings"]] == ["ranks_over_maximum"]
     assert sheet["skills"][0]["total"] == 9
+
+
+async def test_the_cross_class_maximum_is_half_the_class_one_rounded_down(
+    user: AsyncClient,
+) -> None:
+    """Character level 5, so a class skill caps at 8 and a cross-class one at 8 // 2 = 4.
+
+    Four ranks are legal on the class row and legal on the cross-class row too; the fifth is over
+    only on the cross-class one. Asserted through HTTP because `max_ranks` reaches the client
+    twice — on the derived row and again in the warning's `params` — and the sheet shows both.
+    """
+    skills = {row["name"]: row["id"] for row in (await user.get("/api/skills")).json()}
+    body: dict[str, Any] = {"class_levels": [{"class_name": "Rogue", "level": 5}]}
+
+    both_legal = await derive(
+        user,
+        skills=[
+            {"skill_id": skills["Hide"], "ranks": 4, "is_class_skill": True},
+            {"skill_id": skills["Spot"], "ranks": 4, "is_class_skill": False},
+        ],
+        **body,
+    )
+    assert [row["max_ranks"] for row in both_legal["skills"]] == [8, 4]
+    assert both_legal["warnings"] == []
+
+    one_over = await derive(
+        user,
+        skills=[
+            {"skill_id": skills["Hide"], "ranks": 5, "is_class_skill": True},
+            {"skill_id": skills["Spot"], "ranks": 5, "is_class_skill": False},
+        ],
+        **body,
+    )
+    assert [w["code"] for w in one_over["warnings"]] == ["ranks_over_maximum"]
+    assert one_over["warnings"][0]["params"]["kind"] == "cross_class"
+    assert one_over["warnings"][0]["params"]["max_ranks"] == "4"
 
 
 async def test_invalid_input_is_rejected_before_the_engine_sees_it(user: AsyncClient) -> None:

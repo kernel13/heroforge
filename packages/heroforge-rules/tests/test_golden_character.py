@@ -407,6 +407,29 @@ class TestWarnings:
         assert "Listen" in warning.message
         assert warning.field == f"srd-{SKILL_IDS['Listen']}-"
 
+    def test_every_warning_carries_its_facts_as_tokens_beside_the_english(
+        self, sheet: DerivedSheet
+    ) -> None:
+        """``params`` is what lets a client write the sentence in its own language.
+
+        The engine has no locale and is not going to grow one, so ``message`` stays English. What
+        it can do is hand over the same facts *unformatted* — an identifier, a number, and a
+        ``kind`` token rather than the English word "cross-class". A client that spliced
+        ``message`` apart, or read "cross-class" out of it, would produce half a translation.
+        """
+        dex, ranks = sheet.warnings
+
+        assert dex.params == {"dex_modifier": "3", "max_dex": "1", "applied": "1"}
+
+        assert ranks.params == {
+            "skill_id": str(SKILL_IDS["Listen"]),
+            "skill_name": "Listen",
+            "kind": "class",
+            "ranks": "12",
+            "max_ranks": "10",
+            "character_level": "7",
+        }
+
     def test_nothing_raises(self, sheet: DerivedSheet) -> None:
         """Warnings, not exceptions. Getting this far is the assertion."""
         assert sheet.warnings

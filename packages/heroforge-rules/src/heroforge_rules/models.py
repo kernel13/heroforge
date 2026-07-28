@@ -62,6 +62,12 @@ class RuleWarning(BaseModel):
 
     House rules and homebrew are normal play, so nothing here is an error. Named ``RuleWarning``
     rather than ``Warning`` so it does not shadow the builtin.
+
+    ``message`` is English and stays that way: the engine has no locale and is not going to grow
+    one. ``params`` carries the same facts as **tokens** — a skill identifier, a number, a
+    ``kind`` of ``"class"`` or ``"cross_class"`` — so a client that speaks another language can
+    build the sentence itself rather than splicing a translation around English fragments. Values
+    are strings because a warning's parameters differ per code and end up in text either way.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -69,6 +75,7 @@ class RuleWarning(BaseModel):
     code: WarningCode
     message: str
     field: str | None = None
+    params: dict[str, str] = Field(default_factory=dict)
 
 
 class SkillDefinition(BaseModel):
