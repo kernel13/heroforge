@@ -148,12 +148,11 @@ grapple_modifier         = base_attack_bonus + str_mod + grapple_size_modifier +
 
 armor_check_penalty      = sum of check penalties of equipped armour and shield
                            stored and summed as a non-positive integer (see below)
-effective_ranks          = floor(ranks)
-skill_total              = effective_ranks + ability_mod + misc
+skill_total              = ranks + ability_mod + misc          ranks is a whole number
                               + (armor_check_penalty if skill.armor_check_penalty)
                               + (armor_check_penalty again if skill.acp_double)   # Swim
-max_ranks                = character_level + 3          class skill
-                         = (character_level + 3) / 2    cross-class skill
+max_ranks                = character_level + 3                       class skill
+                           (character_level + 3) // 2                cross-class, rounded down
 
 carried_weight           = sum of possession weights + equipped armour and shield weights
 load_limits              = Strength load table (see below)
@@ -175,15 +174,25 @@ frequently mis-derived number on a hand-written sheet. It is applied to `armor_c
 
 ### Two conventions that must not be left implicit
 
-**Half ranks contribute nothing to the skill check.** `ranks` is stored as a half-integer, but a
-half rank does not improve a skill check — it only counts toward the maximum and brings the character
-closer to the next full rank. The engine therefore floors ranks before adding them, while `max_ranks`
-validation compares against the *unfloored* stored value. A character with 3½ ranks in a cross-class
-skill adds 3.
+**The cross-class rank maximum is half the class one, rounded down.** The SRD's halved maximum is a
+value that can be fractional — a level-2 character caps a cross-class skill at 2½ — and rounding it
+down is this engine's one deliberate departure from the SRD. It departs downward, and it is what
+keeps every cap an integer. `max_ranks(character_level, *, is_class_skill)` takes the flag
+keyword-only and without a default: omitting it would silently yield the class ceiling, which is
+the more permissive of the two and therefore the error that produces no warning to be found by.
+What the SRD says about cost — two skill points per cross-class rank — is still not modelled; the
+`kind` of skill reaches the over-maximum warning's params so a client can name which was overspent.
 
-This is the one formula in phase 1 whose SRD wording should be re-read and quoted in the test
-docstring before the implementation is written. It is the most likely source of a silent
-off-by-one, and it would otherwise surface only in the golden character test.
+**A rank is a whole number.** The SRD's fraction of a rank exists only because a cross-class rank
+costs two skill points, which this application does not model, and the halved maximum that is the
+SRD's other fraction is rounded down above. Neither route to a half rank is open, so a rank always
+counts toward the check in full and there is nothing to floor. `ranks` is an integer from
+`SkillEntry` through to the `character_skills` column, and `3.5` is refused at the Pydantic
+boundary rather than stored as a value the engine would then have to discard part of. An
+`effective_ranks` alongside `ranks` would be a field that can never differ from it.
+
+Rounding the halved maximum down is the only place the engine knowingly departs from the SRD;
+anywhere else a difference appears, the engine is wrong.
 
 **Armour check penalties are stored as non-positive integers.** Full plate is stored as `-5`, not
 `5` — matching both the SRD armour tables and what the user writes on the paper sheet. The engine
@@ -265,7 +274,7 @@ that drives `max_ranks`.
 | `skill_id` | FK → skills, nullable |
 | `custom_name` | nullable — the blank rows at the bottom of the sheet |
 | `specialization` | nullable — the parenthesised blank in Craft ( ___ ) |
-| `ranks` | `NUMERIC(4,1)` |
+| `ranks` | int, ≥ 0 |
 | `misc_modifier` | int |
 | `is_class_skill` | bool — user-set in phase 1, derived from class in phase 2 |
 
@@ -278,9 +287,9 @@ places, forever. Forty rows per character is nothing, and the sheet displays all
 Rows for skills that take a specialization (Craft, Knowledge, Perform, Profession) are created to
 match the paper sheet's repeat count, and further ones can be added by the user.
 
-`ranks` is stored as the displayed half-integer value rather than as skill points spent. Cross-class
-ranks are genuinely half-integers in 3.5 and the paper sheet asks you to write "3½"; storing the
-displayed value keeps the engine simple and matches user expectation.
+`ranks` is an `integer` column, and stores the rank count as written on the sheet rather than skill
+points spent. Skill-point cost is what makes a rank fractional in the SRD and it is not modelled
+here, so a half rank cannot occur; the column carries no scale for one to hide in.
 
 **`character_armor`** — `character_id`, `slot` enum (`armor` / `shield` / `protective_1` /
 `protective_2`), `name`, `type`, `ac_bonus`, `max_dex`, `check_penalty`, `spell_failure`, `speed`,

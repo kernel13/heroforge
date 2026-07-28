@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C — Codex Grid · HeroForge design exploration</title>
+<style>
+/* ============================================================================
+   EXPLORATION C — "Codex Grid"
+
+   Axis: is the two-page split worth keeping? Here it is gone. One continuous
+   document, navigated by a sticky contents column, laid out in as many columns
+   as the viewport affords. The forty-row skills table runs in two columns like
+   Call of Cthulhu's, so the whole list fits one screen instead of one scroll.
+
+   Position on derived vs entered: TYPOGRAPHIC. An entered value is set in the
+   reading face, inside a frame, in the reader's own hand. A derived value has
+   no frame at all and is set in the machine face — a monospace, which is
+   inherently tabular. Two non-colour channels (typeface and the absent frame)
+   before colour is used at all, which is what WCAG 1.4.1 asks for. It also
+   degrades correctly: a skill with no ranks shows an empty column, and an
+   empty column of nothing is not mistaken for an empty box waiting to be
+   filled — which is exactly what a tinted tile becomes.
+
+   Palette: aged linen and iron-gall ink. Quieter than the parchment, and the
+   border is dark enough to pass 1.4.11's 3:1 — the current `--border`
+   (#d8c3a8 on the composited card) measures 1.47:1 and does not.
+
+   Fonts: preview uses macOS faces. Shippable: EB Garamond or Cormorant
+   Garamond for headings (OFL, on @fontsource), IBM Plex Mono for numbers.
+   ========================================================================= */
+
+:root{
+  --linen:#f2ece0;
+  --linen-2:#e8e0d0;
+  --ink:#221c14;          /* 14.35:1 on linen */
+  --ink-soft:#5b5040;     /* 6.69:1 */
+  --rule:#8f8066;         /* 3.28:1 — passes non-text contrast */
+  --rule-soft:#cdc2ac;
+  --gall:#2f4858;         /* iron-gall blue-black, 8.16:1 */
+  --gall-soft:#5b7688;
+  --red:#8c1c13;
+  --field:#fffdf7;
+
+  --display:"Optima","Palatino Linotype",Palatino,Georgia,serif;
+  --body:ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+  /* THE MACHINE FACE. Every number the application worked out is set here. */
+  --machine:ui-monospace,"SF Mono","Menlo","IBM Plex Mono",monospace;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;font:15px/1.45 var(--body);color:var(--ink);
+  /* Aged linen: a woven ground, made of gradients rather than a raster.
+     No third-party fetch, and it survives to the PDF as flat colour. */
+  background-color:#ded4c0;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(120,100,70,.055) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(0deg,  rgba(120,100,70,.055) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 80% at 30% -10%, rgba(255,250,238,.7), transparent 60%);
+  background-attachment:fixed;
+}
+input,button,textarea{font:inherit;color:inherit}
+
+.annot{
+  max-width:1400px;margin:0 auto 1rem;padding:.7rem 1rem;
+  background:var(--gall);border-left:3px solid var(--red);color:#e6eef2;
+  font:.82rem/1.5 var(--body);border-radius:0 .25rem .25rem 0;
+}
+.annot b{color:#f0d8a8}
+.annot code{font:.9em var(--machine);background:rgba(255,255,255,.1);padding:0 .25em;border-radius:2px}
+
+/* ---- masthead ----------------------------------------------------------- */
+.masthead{
+  border-bottom:2px solid var(--ink);background:var(--linen);
+  padding:.7rem 1.5rem .55rem;
+  display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap;
+}
+.masthead h1{margin:0;font:400 1.75rem/1 var(--display);letter-spacing:.005em}
+.masthead .sentence{font:.88rem/1.4 var(--body);color:var(--ink-soft)}
+.masthead .sentence b{color:var(--gall);font-weight:600}
+.masthead .acts{margin-left:auto;display:flex;gap:.5rem;align-items:center}
+.btn{background:var(--linen);border:1px solid var(--rule);border-radius:2px;
+  padding:.3rem .7rem;font-size:.82rem;cursor:pointer}
+.btn:hover{background:var(--linen-2)}
+.saved{font:.78rem/1 var(--body);color:#2f6b3f}
+
+/* THE LEGEND — said once, at the top, instead of a marker on 200 controls. */
+.legend{
+  display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap;
+  padding:.4rem 1.5rem;background:var(--linen-2);border-bottom:1px solid var(--rule);
+  font:.74rem/1 var(--body);color:var(--ink-soft);
+}
+.legend b{font-weight:600;color:var(--ink)}
+.legend .demo-in{display:inline-block;border:1px solid var(--rule);background:var(--field);
+  padding:.1rem .45rem;border-radius:2px;font:.8rem var(--body)}
+.legend .demo-out{font:.9rem var(--machine);color:var(--gall);font-weight:600}
+
+/* ---- shell -------------------------------------------------------------- */
+.shell{max-width:1400px;margin:0 auto;padding:1.25rem 1.5rem 5rem;
+  display:grid;gap:1.5rem;grid-template-columns:11rem minmax(0,1fr);align-items:start}
+
+/* Contents replace the page tabs. The whole sheet is one document; this says
+   where you are in it and never hides half of it behind a click. */
+.contents{position:sticky;top:1rem}
+.contents h2{margin:0 0 .5rem;font:600 .6rem/1 var(--body);letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-soft)}
+.contents ol{list-style:none;margin:0;padding:0;counter-reset:s}
+.contents li{counter-increment:s}
+.contents a{
+  display:flex;gap:.5rem;padding:.28rem .5rem;text-decoration:none;color:var(--ink);
+  font-size:.85rem;border-left:2px solid transparent;
+}
+.contents a::before{content:counter(s,upper-roman);color:var(--ink-soft);
+  font:.7rem/1.5 var(--machine);min-width:1.6rem;text-align:right}
+.contents a:hover{background:var(--linen-2)}
+.contents a[aria-current=true]{border-left-color:var(--red);background:var(--linen);font-weight:600}
+.contents .tally{margin-top:1rem;padding-top:.7rem;border-top:1px solid var(--rule);
+  font:.72rem/1.6 var(--body);color:var(--ink-soft)}
+.contents .tally b{font:.95rem var(--machine);color:var(--gall);display:block}
+
+/* ---- the grid of plates ------------------------------------------------- */
+.sheet{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(21rem,1fr));align-items:start}
+.plate{background:var(--linen);border:1px solid var(--rule);border-radius:2px;
+  box-shadow:0 1px 4px rgba(40,28,10,.2)}
+.plate.span2{grid-column:span 2}
+.plate.span3{grid-column:1/-1}
+@media (max-width:1100px){.plate.span2{grid-column:1/-1}}
+
+.plate > header{display:flex;align-items:baseline;gap:.5rem;
+  padding:.4rem .8rem;border-bottom:1px solid var(--ink)}
+.plate > header h2{margin:0;font:400 1.1rem/1.2 var(--display);letter-spacing:.01em}
+.plate > header .meta{margin-left:auto;font:.72rem/1 var(--machine);color:var(--ink-soft)}
+.plate .body{padding:.75rem .8rem .85rem}
+
+/* ---- entered: framed, in the reading face ------------------------------- */
+.f{display:flex;flex-direction:column;gap:.12rem;min-width:0}
+.f > span{font:600 .6rem/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.f input{width:100%;height:1.75rem;padding:0 .4rem;background:var(--field);
+  border:1px solid var(--rule);border-radius:2px}
+.f input:focus-visible{outline:2px solid var(--red);outline-offset:1px}
+.f.num input{text-align:right;font-family:var(--machine);font-size:.9rem}
+.row{display:flex;flex-wrap:wrap;gap:.5rem .6rem;align-items:end}
+.row > .f{flex:1 1 8rem}
+.row > .f.w5{flex:0 1 4.2rem}
+.row > .f.grow{flex:3 1 12rem}
+/* Bottom-aligned so a label that wraps in French ("Résistance à la magie" where
+   English wrote "Spell resistance") pushes upward instead of dropping its input
+   a line below the ones beside it. */
+.grid{display:grid;gap:.5rem .7rem;align-items:end;
+  grid-template-columns:repeat(auto-fit,minmax(6rem,1fr))}
+.namefield input{height:2.2rem;font:400 1.25rem/1 var(--display)}
+
+/* ---- derived: unframed, in the machine face ----------------------------- */
+/* No box, no tint, no fill. When a derived value is absent the space is
+   simply empty — which is what it is — instead of an empty coloured tile
+   that a reader tries to click into. */
+.d{display:flex;flex-direction:column;gap:.05rem;min-width:3.5rem}
+.d > span{font:600 .6rem/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.d output{font:600 1.5rem/1.15 var(--machine);color:var(--gall);font-variant-numeric:tabular-nums}
+.d.big output{font-size:2.4rem;line-height:1}
+.ds{display:flex;flex-wrap:wrap;gap:1.3rem;align-items:baseline}
+.ds + .row,.ds + .grid{margin-top:.7rem;padding-top:.6rem;border-top:1px solid var(--rule-soft)}
+
+.note{margin:.55rem 0 0;font:.76rem/1.45 var(--body);color:var(--ink-soft)}
+.note b{font-family:var(--machine);color:var(--gall);font-weight:600}
+
+/* ---- tables ------------------------------------------------------------- */
+table{width:100%;border-collapse:collapse}
+caption{text-align:left;font:600 .6rem/1 var(--body);letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-soft);padding-bottom:.3rem}
+th{font:600 .58rem/1 var(--body);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-soft);text-align:right;padding:0 .3rem .3rem;border-bottom:1px solid var(--ink)}
+th.l,td.l{text-align:left}
+td{padding:.1rem .3rem;border-bottom:1px solid var(--rule-soft)}
+tbody tr:last-child td{border-bottom:none}
+td input{width:100%;height:1.55rem;padding:0 .28rem;text-align:right;background:var(--field);
+  border:1px solid var(--rule);border-radius:2px;font:.88rem var(--machine);
+  font-variant-numeric:tabular-nums}
+td input:focus-visible{outline:2px solid var(--red);outline-offset:1px}
+td.d-cell output{display:block;text-align:right;font:600 1rem/1.55 var(--machine);
+  color:var(--gall);font-variant-numeric:tabular-nums}
+.rowname{font:400 .95rem/1 var(--display)}
+
+/* ---- skills, two columns ------------------------------------------------ */
+/* The whole list on one screen. Column-fill runs down the *sorted display
+   order*; every write still targets the row's stored index, which is the
+   distinction that makes a sorted table safe at all. */
+.skillcols{display:grid;gap:0 1.6rem;grid-template-columns:repeat(auto-fit,minmax(24rem,1fr))}
+.skills{font-size:.86rem}
+.skills td.name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0;width:46%}
+.skills .abil{font:.68rem/1 var(--machine);color:var(--ink-soft)}
+.skills .flag{color:var(--red);font-weight:700;cursor:help;text-decoration:none}
+.skills tbody tr:hover td{background:var(--linen-2)}
+.cls{appearance:none;width:.78rem;height:.78rem;border:1px solid var(--rule);border-radius:1px;
+  background:var(--field);cursor:pointer;vertical-align:-1px;position:relative}
+.cls:checked{background:var(--gall);border-color:var(--gall);box-shadow:inset 0 0 0 2px var(--linen)}
+/* Keeps the 24px target the WCAG minimum asks for while the drawn box stays small. */
+.cls::before{content:"";position:absolute;inset:-6px}
+.cls:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.blank output{visibility:hidden}
+.over td{background:rgba(140,28,19,.06)}
+.over .d-cell output{color:var(--red)}
+
+.ruleline{margin:0 0 .5rem;font:.74rem/1.4 var(--body);color:var(--ink-soft);
+  padding-left:.6rem;border-left:2px solid var(--gall-soft)}
+.ruleline b{font-family:var(--machine);color:var(--gall)}
+.addrow{margin-top:.5rem;background:transparent;border:1px dashed var(--rule);border-radius:2px;
+  padding:.28rem .7rem;font-size:.8rem;color:var(--ink-soft);cursor:pointer}
+.addrow:hover{border-color:var(--red);color:var(--red)}
+
+.warnplate{border-left:3px solid var(--red)}
+.warnplate ul{margin:0;padding-left:1.1rem;font-size:.86rem}
+
+textarea{width:100%;background:var(--field);border:1px solid var(--rule);border-radius:2px;
+  padding:.35rem .45rem;font:.85rem/1.5 var(--body);resize:vertical}
+textarea:focus-visible{outline:2px solid var(--red);outline-offset:1px}
+
+@media (max-width:900px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .contents{position:static;display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.5rem;
+    border-bottom:1px solid var(--rule)}
+  .contents h2,.contents .tally{display:none}
+  .contents ol{display:flex;gap:.2rem}
+  .contents a{white-space:nowrap;border-left:none;border-bottom:2px solid transparent}
+  .contents a[aria-current=true]{border-bottom-color:var(--red)}
+  .skills td.name{max-width:none;width:auto}
+}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <h1>Sera Valhen</h1>
+  <span class="sentence">A <b>Neutral good Human</b>, <b>Fighter 4 / Rogue 3</b>, sworn to <b>Kord</b>.</span>
+  <span class="acts">
+    <span class="saved">● All changes saved</span>
+    <button class="btn">Export PDF</button>
+    <button class="btn">All characters</button>
+  </span>
+</header>
+
+<p class="legend">
+  <span><span class="demo-in">14</span> &nbsp;<b>Boxed</b> — you enter it.</span>
+  <span><span class="demo-out">+2</span> &nbsp;<b>Plain</b> — the sheet works it out.</span>
+  <span style="margin-left:auto">Ranks cap at <b>10</b> for a class skill, <b>5</b> cross-class.</span>
+</p>
+
+<p class="annot" style="margin-top:1rem"><b>Exploration C — Codex Grid.</b> The two page tabs are
+gone: one continuous document, a contents column instead of pagination, and as many panel columns
+as the window affords. The forty-row skills table runs in <b>two columns</b>, so the whole list is
+one screen rather than one scroll. The derived/entered distinction is <b>typographic</b> — an
+entered value is framed and set in the reading face, a derived value has no frame and is set in the
+machine face. Two channels before colour is used at all, and an absent derived value leaves an
+empty space rather than an empty coloured box. <b>This is the risky one:</b> dropping the tabs puts
+roughly two hundred controls in the accessibility tree at once, which is precisely what unmounting
+the inactive page avoids today.</p>
+
+<div class="shell">
+
+  <nav class="contents" aria-label="Sections">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#identity" aria-current="true">Identity</a></li>
+      <li><a href="#abilities">Abilities</a></li>
+      <li><a href="#defence">Defence</a></li>
+      <li><a href="#saves">Saves</a></li>
+      <li><a href="#attacks">Attacks</a></li>
+      <li><a href="#skills">Skills</a></li>
+      <li><a href="#gear">Gear</a></li>
+      <li><a href="#magic">Magic</a></li>
+    </ol>
+    <p class="tally">Ranks spent<b>87</b>Character level<b>7</b>Load<b>medium</b></p>
+  </nav>
+
+  <div class="sheet">
+
+    <!-- WARNINGS ------------------------------------------------------- -->
+    <section class="plate span3 warnplate">
+      <header><h2>Worth a look</h2><span class="meta">2 notes</span></header>
+      <div class="body">
+        <ul>
+          <li>Dexterity bonus +2 exceeds full plate's maximum of +1; +1 applied to armour class.</li>
+          <li>Listen holds 11 ranks; the maximum for a class skill at level 7 is 10.</li>
+        </ul>
+        <p class="note">Reported, not refused — house rules and homebrew are normal play.</p>
+      </div>
+    </section>
+
+    <!-- IDENTITY ------------------------------------------------------- -->
+    <section class="plate span2" id="identity">
+      <header><h2>Identity</h2></header>
+      <div class="body">
+        <div class="row" style="margin-bottom:.55rem">
+          <label class="f grow namefield"><span>Character name</span><input value="Sera Valhen"></label>
+          <label class="f"><span>Player</span><input value="Ana"></label>
+        </div>
+        <div class="grid">
+          <label class="f"><span>Race</span><input value="Human"></label>
+          <label class="f"><span>Alignment</span><input value="Neutral good"></label>
+          <label class="f"><span>Deity</span><input value="Kord"></label>
+          <label class="f"><span>Size</span><input value="Medium"></label>
+          <label class="f"><span>Age</span><input value="27"></label>
+          <label class="f"><span>Gender</span><input value="Female"></label>
+          <label class="f"><span>Height</span><input value="5 ft. 7 in."></label>
+          <label class="f"><span>Weight</span><input value="138 lb."></label>
+          <label class="f"><span>Eyes</span><input value="Grey"></label>
+          <label class="f"><span>Hair</span><input value="Black"></label>
+          <label class="f"><span>Skin</span><input value="Tan"></label>
+          <label class="f"><span>Campaign</span><input value="The Sunless Road"></label>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLASSES -------------------------------------------------------- -->
+    <section class="plate">
+      <header><h2>Classes</h2><span class="meta">level 7</span></header>
+      <div class="body">
+        <div class="row" style="margin-bottom:.4rem">
+          <label class="f grow"><span>Class</span><input value="Fighter"></label>
+          <label class="f num w5"><span>Level</span><input value="4"></label>
+        </div>
+        <div class="row">
+          <label class="f grow"><span>Class</span><input value="Rogue"></label>
+          <label class="f num w5"><span>Level</span><input value="3"></label>
+        </div>
+        <button class="addrow">Add a class</button>
+        <div class="ds" style="margin-top:.8rem;padding-top:.6rem;border-top:1px solid var(--rule-soft)">
+          <div class="d"><span>Level</span><output aria-label="Character level">7</output></div>
+          <div class="d"><span>Max ranks</span><output aria-label="Maximum ranks, class skill">10</output></div>
+          <div class="d"><span>Cross-class</span><output aria-label="Maximum ranks, cross-class skill">5</output></div>
+          <div class="d"><span>XP</span><output>23,000</output></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABILITIES ------------------------------------------------------ -->
+    <section class="plate" id="abilities">
+      <header><h2>Abilities</h2></header>
+      <div class="body">
+        <table>
+          <caption class="sr">Ability scores and modifiers</caption>
+          <thead><tr><th class="l">Ability</th><th>Score</th><th>Temp.</th><th>Mod.</th><th>Temp. mod.</th></tr></thead>
+          <tbody>
+            <tr><td class="l rowname">Strength</td><td><input value="16"></td><td><input value=""></td>
+              <td class="d-cell"><output aria-label="Strength modifier">+3</output></td>
+              <td class="d-cell blank"><output aria-label="Strength temporary modifier">+0</output></td></tr>
+            <tr><td class="l rowname">Dexterity</td><td><input value="14"></td><td><input value=""></td>
+              <td class="d-cell"><output>+2</output></td><td class="d-cell blank"><output>+0</output></td></tr>
+            <tr><td class="l rowname">Constitution</td><td><input value="14"></td><td><input value="16"></td>
+              <td class="d-cell"><output>+2</output></td><td class="d-cell"><output>+3</output></td></tr>
+            <tr><td class="l rowname">Intelligence</td><td><input value="12"></td><td><input value=""></td>
+              <td class="d-cell"><output>+1</output></td><td class="d-cell blank"><output>+0</output></td></tr>
+            <tr><td class="l rowname">Wisdom</td><td><input value="10"></td><td><input value=""></td>
+              <td class="d-cell"><output>+0</output></td><td class="d-cell blank"><output>+0</output></td></tr>
+            <tr><td class="l rowname">Charisma</td><td><input value="8"></td><td><input value=""></td>
+              <td class="d-cell"><output>−1</output></td><td class="d-cell blank"><output>+0</output></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- DEFENCE -------------------------------------------------------- -->
+    <section class="plate span2" id="defence">
+      <header><h2>Defence and movement</h2></header>
+      <div class="body">
+        <div class="ds">
+          <div class="d big"><span>Armour class</span><output aria-label="Armour class total">22</output></div>
+          <div class="d"><span>Touch</span><output aria-label="Touch armour class">12</output></div>
+          <div class="d"><span>Flat-footed</span><output aria-label="Flat-footed armour class">21</output></div>
+          <div class="d big"><span>Initiative</span><output aria-label="Initiative">+2</output></div>
+          <div class="d big"><span>Grapple</span><output aria-label="Grapple modifier">+9</output></div>
+          <div class="d"><span>Load</span><output aria-label="Encumbrance">148 lb.</output></div>
+        </div>
+        <p class="note">Armour class is 10 + armour <b>8</b> + shield <b>2</b> + Dexterity <b>1</b>
+        + deflection <b>1</b>. Grapple is base attack <b>+6</b> + Strength <b>+3</b> + size <b>0</b>
+        — a Small creature takes −4 here and +1 to armour class, which are not the same number.
+        Carrying <b>148 lb.</b> against a medium limit of <b>153</b>.</p>
+        <div class="grid">
+          <label class="f num"><span>Total HP</span><input value="52"></label>
+          <label class="f num"><span>Current HP</span><input value="44"></label>
+          <label class="f num"><span>Nonlethal</span><input value="0"></label>
+          <label class="f num"><span>Speed</span><input value="20"></label>
+          <label class="f num"><span>Damage red.</span><input value="0"></label>
+          <label class="f num"><span>Spell res.</span><input value="0"></label>
+          <label class="f num"><span>Natural</span><input value="0"></label>
+          <label class="f num"><span>Deflection</span><input value="1"></label>
+          <label class="f num"><span>Size mod.</span><input value="0"></label>
+          <label class="f num"><span>AC misc</span><input value="0"></label>
+          <label class="f num"><span>Base attack</span><input value="+6/+1"></label>
+          <label class="f num"><span>Init. misc</span><input value="0"></label>
+        </div>
+      </div>
+    </section>
+
+    <!-- SAVES ---------------------------------------------------------- -->
+    <section class="plate" id="saves">
+      <header><h2>Saving throws</h2></header>
+      <div class="body">
+        <table>
+          <thead><tr><th class="l">Save</th><th>Base</th><th>Magic</th><th>Misc</th><th>Total</th></tr></thead>
+          <tbody>
+            <tr><td class="l rowname">Fortitude <span class="abil">CON</span></td>
+              <td><input value="5"></td><td><input value="0"></td><td><input value="0"></td>
+              <td class="d-cell"><output aria-label="Fortitude total">+8</output></td></tr>
+            <tr><td class="l rowname">Reflex <span class="abil">DEX</span></td>
+              <td><input value="4"></td><td><input value="0"></td><td><input value="0"></td>
+              <td class="d-cell"><output aria-label="Reflex total">+6</output></td></tr>
+            <tr><td class="l rowname">Will <span class="abil">WIS</span></td>
+              <td><input value="2"></td><td><input value="0"></td><td><input value="0"></td>
+              <td class="d-cell"><output aria-label="Will total">+2</output></td></tr>
+          </tbody>
+        </table>
+        <p class="note">Base saves are yours to enter until phase 2 brings class progression tables.</p>
+      </div>
+    </section>
+
+    <!-- ATTACKS -------------------------------------------------------- -->
+    <section class="plate" id="attacks">
+      <header><h2>Attacks</h2></header>
+      <div class="body">
+        <table>
+          <thead><tr><th class="l">Weapon</th><th>Attack</th><th>Damage</th><th>Crit.</th></tr></thead>
+          <tbody>
+            <tr><td class="l"><input style="text-align:left;font-family:var(--body)" value="Longsword"></td>
+              <td><input value="+10/+5"></td><td><input value="1d8+3"></td><td><input value="19–20/×2"></td></tr>
+            <tr><td class="l"><input style="text-align:left;font-family:var(--body)" value="Shortbow"></td>
+              <td><input value="+8/+3"></td><td><input value="1d6"></td><td><input value="×3"></td></tr>
+            <tr><td class="l"><input style="text-align:left;font-family:var(--body)" value="Dagger, thrown"></td>
+              <td><input value="+8"></td><td><input value="1d4+3"></td><td><input value="19–20/×2"></td></tr>
+          </tbody>
+        </table>
+        <button class="addrow">Add an attack</button>
+        <p class="note">Attack and damage are yours to enter — deriving them needs weapon reference
+        data, which is phase 2.</p>
+      </div>
+    </section>
+
+    <!-- SKILLS --------------------------------------------------------- -->
+    <section class="plate span3" id="skills">
+      <header><h2>Skills</h2><span class="meta">87 ranks · 10 max class · 5 max cross-class</span></header>
+      <div class="body">
+        <p class="ruleline">A total is shown only where the skill has a rank. A rank is a whole
+        number and counts in full — <b>*</b> armour check penalty, <b>**</b> twice,
+        <b>T</b> trained only.</p>
+        <div class="skillcols">
+          <table class="skills">
+            <caption>Appraise to Listen</caption>
+            <colgroup><col style="width:1.7rem"><col><col style="width:2.4rem"><col style="width:3.2rem"><col style="width:3.2rem"><col style="width:3.2rem"></colgroup>
+            <thead><tr><th class="l" title="Class skill">Cls</th><th class="l">Skill</th><th class="l">Key</th>
+              <th>Ranks</th><th>Misc</th><th>Total</th></tr></thead>
+            <tbody>
+              <tr><td><input class="cls" type="checkbox" aria-label="Appraise is a class skill"></td>
+                <td class="l name">Appraise</td><td class="l abil">INT</td>
+                <td><input value="0"></td><td><input value="0"></td>
+                <td class="d-cell blank"><output aria-label="Appraise total">+1</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td>
+                <td class="l name">Balance <abbr class="flag" title="Armour check penalty applies">*</abbr></td>
+                <td class="l abil">DEX</td><td><input value="6"></td><td><input value="0"></td>
+                <td class="d-cell"><output aria-label="Balance total">+3</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td><td class="l name">Bluff</td>
+                <td class="l abil">CHA</td><td><input value="5"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+4</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td>
+                <td class="l name">Climb <abbr class="flag" title="Armour check penalty applies">*</abbr></td>
+                <td class="l abil">STR</td><td><input value="4"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+2</output></td></tr>
+              <tr><td><input class="cls" type="checkbox"></td>
+                <td class="l name">Craft <span class="abil">(bowmaking)</span></td>
+                <td class="l abil">INT</td><td><input value="3"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+4</output></td></tr>
+              <tr><td><input class="cls" type="checkbox"></td><td class="l name">Diplomacy</td>
+                <td class="l abil">CHA</td><td><input value="2"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+1</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td>
+                <td class="l name">Disable Device <abbr class="flag" title="Trained only">T</abbr></td>
+                <td class="l abil">INT</td><td><input value="8"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+9</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td>
+                <td class="l name">Escape Artist <abbr class="flag" title="Armour check penalty applies">*</abbr></td>
+                <td class="l abil">DEX</td><td><input value="4"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+1</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td>
+                <td class="l name">Hide <abbr class="flag" title="Armour check penalty applies">*</abbr></td>
+                <td class="l abil">DEX</td><td><input value="6"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+3</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td><td class="l name">Intimidate</td>
+                <td class="l abil">CHA</td><td><input value="5"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+4</output></td></tr>
+              <tr><td><input class="cls" type="checkbox"></td>
+                <td class="l name">Knowledge <span class="abil">(dungeoneering)</span> <abbr class="flag" title="Trained only">T</abbr></td>
+                <td class="l abil">INT</td><td><input value="2"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+3</output></td></tr>
+              <tr class="over"><td><input class="cls" type="checkbox" checked></td>
+                <td class="l name">Listen</td><td class="l abil">WIS</td>
+                <td><input value="11"></td><td><input value="0"></td>
+                <td class="d-cell"><output aria-label="Listen total">+11</output></td></tr>
+            </tbody>
+          </table>
+
+          <table class="skills">
+            <caption>Move Silently to Use Rope</caption>
+            <colgroup><col style="width:1.7rem"><col><col style="width:2.4rem"><col style="width:3.2rem"><col style="width:3.2rem"><col style="width:3.2rem"></colgroup>
+            <thead><tr><th class="l" title="Class skill">Cls</th><th class="l">Skill</th><th class="l">Key</th>
+              <th>Ranks</th><th>Misc</th><th>Total</th></tr></thead>
+            <tbody>
+              <tr><td><input class="cls" type="checkbox" checked></td>
+                <td class="l name">Move Silently <abbr class="flag" title="Armour check penalty applies">*</abbr></td>
+                <td class="l abil">DEX</td><td><input value="6"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+3</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td>
+                <td class="l name">Open Lock <abbr class="flag" title="Trained only">T</abbr></td>
+                <td class="l abil">DEX</td><td><input value="8"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+10</output></td></tr>
+              <tr><td><input class="cls" type="checkbox"></td>
+                <td class="l name">Perform <span class="abil">(sing)</span></td>
+                <td class="l abil">CHA</td><td><input value="0"></td><td><input value="0"></td>
+                <td class="d-cell blank"><output aria-label="Perform (sing) total">−1</output></td></tr>
+              <tr><td><input class="cls" type="checkbox"></td>
+                <td class="l name">Profession <span class="abil">(sailor)</span> <abbr class="flag" title="Trained only">T</abbr></td>
+                <td class="l abil">WIS</td><td><input value="0"></td><td><input value="0"></td>
+                <td class="d-cell blank"><output>+0</output></td></tr>
+              <tr><td><input class="cls" type="checkbox"></td><td class="l name">Ride</td>
+                <td class="l abil">DEX</td><td><input value="0"></td><td><input value="0"></td>
+                <td class="d-cell blank"><output aria-label="Ride total">+2</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td><td class="l name">Search</td>
+                <td class="l abil">INT</td><td><input value="6"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+7</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td>
+                <td class="l name">Sleight of Hand <abbr class="flag" title="Armour check penalty applies">*</abbr><abbr class="flag" title="Trained only">T</abbr></td>
+                <td class="l abil">DEX</td><td><input value="5"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+2</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td><td class="l name">Spot</td>
+                <td class="l abil">WIS</td><td><input value="10"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+10</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td>
+                <td class="l name">Swim <abbr class="flag" title="Armour check penalty applies twice">**</abbr></td>
+                <td class="l abil">STR</td><td><input value="2"></td><td><input value="0"></td>
+                <td class="d-cell"><output aria-label="Swim total">−5</output></td></tr>
+              <tr><td><input class="cls" type="checkbox" checked></td>
+                <td class="l name">Tumble <abbr class="flag" title="Armour check penalty applies">*</abbr><abbr class="flag" title="Trained only">T</abbr></td>
+                <td class="l abil">DEX</td><td><input value="6"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+3</output></td></tr>
+              <tr><td><input class="cls" type="checkbox"></td>
+                <td class="l name">Use Rope</td><td class="l abil">DEX</td>
+                <td><input value="1"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+3</output></td></tr>
+              <tr><td><input class="cls" type="checkbox"></td>
+                <td class="l name"><input style="text-align:left;font-family:var(--body);height:1.4rem"
+                  value="Innuendo (house rule)" aria-label="Custom skill name"></td>
+                <td class="l abil">WIS</td><td><input value="2"></td><td><input value="0"></td>
+                <td class="d-cell"><output>+2</output></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <button class="addrow">Add a skill</button>
+        <p class="note">The real list is about forty rows. Two columns puts it on one screen; the
+        column break follows the sorted display order, and every write still targets the row's
+        stored position.</p>
+      </div>
+    </section>
+
+    <!-- GEAR ----------------------------------------------------------- -->
+    <section class="plate span2" id="gear">
+      <header><h2>Gear and possessions</h2><span class="meta">148 lb. carried</span></header>
+      <div class="body">
+        <div class="grid" style="margin-bottom:.7rem">
+          <label class="f"><span>Armour</span><input value="Full plate"></label>
+          <label class="f num w5"><span>Bonus</span><input value="8"></label>
+          <label class="f num w5"><span>Max Dex</span><input value="1"></label>
+          <label class="f num w5"><span>Check pen.</span><input value="-5"></label>
+          <label class="f num w5"><span>Weight</span><input value="50"></label>
+          <label class="f"><span>Shield</span><input value="Heavy steel"></label>
+          <label class="f num w5"><span>Bonus</span><input value="2"></label>
+          <label class="f num w5"><span>Check pen.</span><input value="-2"></label>
+          <label class="f num w5"><span>Weight</span><input value="15"></label>
+        </div>
+        <label class="f"><span>Possessions</span>
+          <textarea rows="4">Backpack 2 lb.
+Thieves' tools, masterwork 2 lb.
+Rope, silk (50 ft.) 5 lb.
+Rations, trail ×4 4 lb.
+Potion of cure light wounds ×2</textarea></label>
+        <div class="ds" style="margin-top:.7rem">
+          <div class="d"><span>Carried</span><output aria-label="Carried weight">148</output></div>
+          <div class="d"><span>Light load</span><output>76</output></div>
+          <div class="d"><span>Medium</span><output>153</output></div>
+          <div class="d"><span>Heavy</span><output>230</output></div>
+          <div class="d"><span>Check penalty</span><output aria-label="Armour check penalty">−7</output></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MAGIC ---------------------------------------------------------- -->
+    <section class="plate" id="magic">
+      <header><h2>Feats, abilities and magic</h2></header>
+      <div class="body">
+        <label class="f" style="margin-bottom:.5rem"><span>Feats</span>
+          <textarea rows="3">Weapon Focus (longsword)
+Improved Initiative
+Power Attack
+Dodge</textarea></label>
+        <label class="f" style="margin-bottom:.5rem"><span>Special abilities</span>
+          <textarea rows="2">Sneak attack +2d6
+Evasion, trapfinding, trap sense +1</textarea></label>
+        <label class="f"><span>Languages</span>
+          <textarea rows="1">Common, Dwarven, Goblin</textarea></label>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<p class="annot" style="max-width:1400px;margin:1.5rem auto"><b>What it costs.</b> The most work of
+the four. `Tabs` comes out and a scroll-spy contents column goes in; every component test that
+relies on the inactive page being unmounted has to scope its queries to a section instead, because
+`getByLabelText` over two hundred coexisting controls is no longer unambiguous. The two-column
+skills table needs the column break computed over sorted display positions while every write stays
+on the stored index — the existing separation makes that possible, but it is the place to get it
+wrong. <b>What it buys:</b> no page flipping, the whole skill list at once, and a layout that uses
+a wide monitor instead of a 1120px column down the middle of it.</p>
+
+</body>
+</html>

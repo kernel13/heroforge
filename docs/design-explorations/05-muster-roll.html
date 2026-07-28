@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E — Muster Roll · HeroForge character-list exploration</title>
+<style>
+/* ============================================================================
+   EXPLORATION E — "Muster Roll"
+
+   AXIS: density. Is a character list a gallery or a register?
+
+   Today's list is a grid of cards, one card per character, sized for a portrait
+   nobody has uploaded yet. With two characters it is mostly empty parchment;
+   with fifteen it is five rows of scrolling and no way to run your eye down a
+   single column of anything.
+
+   This exploration says the list is a REGISTER. One parchment sheet, one line
+   per character, hairline rules between them, and every field in a column that
+   lines up with the same field on every other line. You scan it the way you
+   scan a party roster — down a column, not across a grid.
+
+   WHAT IT ADDS THAT IS FREE: `updated_at` is already on `CharacterSummary` and
+   the current card ignores it. "Edited 3 days ago" is the single most useful
+   thing a list of half-finished sheets can tell you, and it costs one
+   dictionary key pair, no API change.
+
+   POSITION ON DELETE: an overflow menu at the row end. Today the destructive
+   control is the widest, highest-contrast thing on the card while the control
+   that opens the sheet is a ghost button. That is backwards. Here Delete is one
+   item in a "…" menu that appears on hover and on keyboard focus, and is
+   reachable by tab at all times.
+
+   PORTRAIT: stays an upload control, 40px and round. It is the row's smallest
+   element because on this axis it is the least useful one — you find a
+   character in a register by name.
+
+   COST: medium. New markup and CSS for the list, one `<ul>` → table-ish grid,
+   a menu primitive (shadcn `DropdownMenu`, already available), two dictionary
+   keys, and a relative-time formatter (`Intl.RelativeTimeFormat`, which is
+   locale-aware for free and so needs no French string of its own).
+
+   Fonts are the real bundled files, read out of `web/node_modules`. Opened from
+   anywhere else the page falls back to system faces and still lays out.
+   ========================================================================= */
+
+@font-face{
+  font-family:"MedievalSharp";font-style:normal;font-weight:400;font-display:swap;
+  src:url("../../web/node_modules/@fontsource/medievalsharp/files/medievalsharp-latin-400-normal.woff2") format("woff2");
+}
+@font-face{
+  font-family:"Cinzel";font-style:normal;font-weight:700;font-display:swap;
+  src:url("../../web/node_modules/@fontsource/cinzel/files/cinzel-latin-700-normal.woff2") format("woff2");
+}
+
+:root{
+  /* Restated from web/src/styles.css. Nothing here is a new colour. */
+  --ink:#2b1f19;
+  --ink-soft:#6d5c50;
+  --rule:#d8c3a8;
+  --card:#fbf4e9;
+  --secondary:#f1e2c8;
+  --muted:#efdbc4;
+  --vermilion:#8a2b1c;
+  --heading:#5c3a24;
+  --field:#ffffff;
+  --destructive:#9b2c20;
+  --on-ground:#f0e2cc;
+  --on-ground-muted:#c9b393;
+  --rail:#241a13;
+  --rail-line:#463427;
+  --rail-accent:#e0b273;
+  --radius:.375rem;
+
+  --body:ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --display:"MedievalSharp","Hoefler Text",Georgia,serif;
+  --emblem:"Cinzel",Georgia,serif;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;font:15px/1.45 var(--body);color:var(--ink);
+  background-color:#78421a;
+  background-image:
+    radial-gradient(140% 100% at 70% 0%, rgba(0,0,0,.22), rgba(0,0,0,.5)),
+    repeating-linear-gradient(100deg,#78421a 0 9px,#8b4f21 9px 18px);
+  background-attachment:fixed;
+}
+input,button{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--rail-accent);outline-offset:2px;border-radius:2px}
+
+/* --- chrome, so the list is judged in context ---------------------------- */
+.appbar{
+  display:flex;align-items:center;gap:1rem;padding:.55rem 1.25rem;
+  background:rgba(251,244,234,.95);border-bottom:1px solid var(--rule);
+}
+.appbar b{font-weight:600;font-size:.95rem}
+.appbar .sp{margin-left:auto}
+.appbar .who{color:var(--ink-soft);font-size:.85rem}
+.mark{display:flex;flex-direction:column;padding-left:1rem;border-left:1px solid var(--rule);
+  font-family:var(--emblem);color:var(--vermilion);line-height:1.05}
+.mark s{text-decoration:none;font-weight:700;letter-spacing:.08em;font-size:.95rem}
+.mark i{font-style:normal;font-size:.56rem;letter-spacing:.12em;color:var(--ink-soft)}
+
+main{max-width:64rem;margin:0 auto;padding:2rem 1.25rem 5rem}
+
+h1{margin:0;font:600 1.25rem/1.2 var(--body);letter-spacing:-.01em;color:var(--on-ground)}
+
+.newform{display:flex;align-items:flex-end;gap:.75rem;margin:1rem 0 1.5rem}
+.newform label{display:flex;flex-direction:column;gap:.25rem;flex:1;max-width:16rem}
+.ground-label{font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.13em;
+  color:var(--on-ground-muted)}
+.newform input{background:var(--field);border:1px solid var(--rule);border-radius:var(--radius);
+  padding:.35rem .55rem;height:2rem;color:var(--ink)}
+.btn-primary{background:var(--vermilion);color:#fdf7ee;border:0;border-radius:var(--radius);
+  padding:0 .85rem;height:2rem;font-size:.875rem;font-weight:500}
+
+/* --- the register -------------------------------------------------------- */
+/*
+ * One sheet, not fifteen. The cards used to float in a grid; a register is a
+ * single surface with rules across it, which is also what makes the columns
+ * legible — a column only reads as a column if it runs uninterrupted.
+ */
+/*
+ * No `overflow:hidden` here, which is why the rounding is on the header and the
+ * foot instead. An overflow ancestor clips an absolutely positioned menu no
+ * matter what its `z-index` says, and the menu on the last row opens downward.
+ * Radix's `DropdownMenu` portals to `<body>` and so has no such ancestor — this
+ * is a constraint of the mockup, and a point in the real primitive's favour.
+ */
+.roll{background:var(--card);border:1px solid var(--rule);border-radius:var(--radius)}
+.roll ul{list-style:none;margin:0;padding:0}
+
+/*
+ * The shared column track. Header and every row use the same one, which is the
+ * whole point of the exploration — change it in one place or the register stops
+ * being a register.
+ *
+ * 2.5rem portrait · name/class · race & campaign · level gutter · edited · menu
+ */
+/*
+ * `align-items:stretch` rather than `center`, and the vertical padding moved off
+ * the container and onto the cells. That is what lets the level cell paint
+ * itself edge to edge of the row and so read as a continuous column — an
+ * absolutely positioned band over the top does not track the grid, and drifts
+ * the moment a column width changes.
+ */
+.cols{
+  display:grid;
+  grid-template-columns:2.5rem minmax(0,2.1fr) minmax(0,1.5fr) 3.25rem 6.5rem 2rem;
+  align-items:stretch;gap:.75rem;
+  padding:0 .75rem;
+}
+/* `margin:0` is load-bearing: `.lvl` and `.when` are paragraphs, and a default
+   1em block margin shrinks the stretched cell so the level column stops being a
+   continuous band and becomes a stack of separate chips. */
+.cols > *{display:flex;align-items:center;min-width:0;margin:0;padding-block:.55rem}
+
+.head{background:var(--secondary);border-bottom:1px solid var(--rule);
+  border-radius:calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0}
+.head > *{padding-block:.4rem}
+.head span{font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.13em;
+  color:var(--ink-soft)}
+.head .lvl,.head .when{justify-content:center}
+
+.row{border-bottom:1px solid var(--rule)}
+.row:last-child{border-bottom:0}
+.row:hover{background:#f6ecdc}
+.row:focus-within{background:#f6ecdc}
+
+/* Portrait token. Round, so it never competes with the square level gutter. */
+.tok{
+  width:2.25rem;height:2.25rem;border-radius:999px;overflow:hidden;padding:0;align-self:center;
+  border:1px solid var(--rule);background:var(--secondary);display:grid;place-items:center;
+}
+.tok svg{width:100%;height:100%;display:block}
+.tok .glyph{width:1.1rem;height:1.1rem;fill:var(--heading);opacity:.55}
+.tok:hover{border-color:var(--heading)}
+
+/* The row's open control. Name and class line stay ONE control, as today. */
+.open{
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:.05rem;
+  background:none;border:0;text-align:left;min-width:0;width:100%;padding-inline:0;
+}
+.open .nm{font-weight:600;font-size:.98rem;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.open .cl{font-size:.82rem;color:var(--ink-soft);max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.open:hover .nm{color:var(--vermilion);text-decoration:underline;text-underline-offset:2px}
+.unnamed .nm{font-style:italic;color:var(--ink-soft);font-weight:500}
+
+/* `align-self:center` rather than a flex cell: `text-overflow` needs a block. */
+.meta{margin:0;font-size:.82rem;color:var(--ink-soft);display:block;align-self:center;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta.none{color:#a08e80}
+
+/*
+ * THE SIGNATURE: the level gutter.
+ *
+ * A cell of tinted parchment that fills its row top to bottom, so one figure per
+ * line stacks into a continuous band running the height of the sheet. It is the
+ * only thing on the page you can read as a column — glance down it and you know
+ * whether your party is level 3 or level 12 without reading a single name.
+ *
+ * Deliberately NOT set in Cinzel: `font-emblem` is the nav's SRD mark and
+ * nothing else, and widening that remit is a change to FONTS.txt's story, not a
+ * CSS tweak. The body face with lining tabular figures at 1.05rem does the job.
+ */
+.lvl{
+  justify-content:center;
+  background:var(--secondary);border-left:1px solid var(--rule);border-right:1px solid var(--rule);
+  font-variant-numeric:tabular-nums lining-nums;
+  font-size:1.05rem;font-weight:600;color:var(--heading);
+}
+.lvl.zero{font-size:.9rem;font-weight:400;color:#a08e80}
+
+.when{justify-content:center;font-size:.78rem;color:var(--ink-soft);
+  font-variant-numeric:tabular-nums lining-nums}
+.when.fresh{color:var(--heading)}
+
+/*
+ * Delete lives here. Hidden until the row is hovered or something inside it has
+ * focus — but it is a real button in the tab order at all times, so a keyboard
+ * user reaches it in the same place a mouse user finds it.
+ */
+.menuwrap{position:relative;justify-self:end;align-self:center}
+.more{
+  width:1.75rem;height:1.75rem;border-radius:var(--radius);border:1px solid transparent;
+  background:none;color:var(--ink-soft);line-height:1;font-size:1.1rem;
+  display:grid;place-items:center;opacity:0;transition:opacity .12s ease;
+}
+.row:hover .more,.row:focus-within .more,.more:focus-visible{opacity:1}
+.more:hover{background:var(--muted);border-color:var(--rule)}
+.menu{
+  position:absolute;right:0;top:2rem;z-index:10;min-width:11rem;
+  background:#fdf7ee;border:1px solid var(--rule);border-radius:var(--radius);
+  box-shadow:0 8px 24px rgba(0,0,0,.22);padding:.25rem;
+}
+.menu[hidden]{display:none}
+.menu button{
+  display:block;width:100%;text-align:left;background:none;border:0;
+  padding:.4rem .55rem;border-radius:calc(var(--radius) - 2px);font-size:.875rem;
+}
+.menu button:hover{background:var(--muted)}
+.menu .danger{color:var(--destructive)}
+.menu .danger:hover{background:#fbeae8}
+.menu hr{border:0;border-top:1px solid var(--rule);margin:.25rem 0}
+
+.foot{
+  padding:.55rem .75rem;background:var(--secondary);border-top:1px solid var(--rule);
+  border-radius:0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px);
+  font-size:.78rem;color:var(--ink-soft);
+}
+
+/* --- mobile -------------------------------------------------------------- */
+/*
+ * Below 44rem the columns stop being columns — there is not enough width for
+ * five of them to mean anything. The row folds to two lines and the level moves
+ * into a stamped disc beside the portrait, because on a phone the level is the
+ * one figure worth keeping at a glance.
+ */
+@media (max-width:44rem){
+  .cols{grid-template-columns:2.5rem minmax(0,1fr) 2.75rem 2rem;
+    grid-template-areas:"tok open lvl menu" ". meta meta meta";
+    row-gap:0;padding:.55rem .7rem}
+  .cols > *{padding-block:0}
+  .head{display:none}
+  .tok{grid-area:tok}
+  .open{grid-area:open}
+  .meta{grid-area:meta;padding-top:.3rem}
+  .lvl{grid-area:lvl}
+  .menuwrap{grid-area:menu}
+  .when{display:none}
+  /* The column becomes a disc: with nothing above or below to stack into, a
+     tinted band is just a stripe down one edge of a two-line row. */
+  .lvl{background:var(--secondary);border:1px solid var(--rule);border-radius:999px;
+    width:2.25rem;height:2.25rem;align-self:center;justify-self:center;font-size:.95rem}
+  .lvl.zero{border-style:dashed}
+  .more{opacity:1}
+}
+
+/* --- the notes panel ----------------------------------------------------- */
+.notes{margin-top:2rem;background:var(--card);border:1px solid var(--rule);
+  border-radius:var(--radius);padding:1rem 1.15rem}
+.notes h2{margin:0 0 .6rem;font-size:.72rem;font-weight:600;text-transform:uppercase;
+  letter-spacing:.16em;color:var(--heading)}
+.notes dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:.4rem .9rem;font-size:.86rem}
+.notes dt{color:var(--ink-soft);white-space:nowrap}
+.notes dd{margin:0}
+.notes code{font:.9em ui-monospace,Menlo,monospace;background:rgba(0,0,0,.06);
+  padding:.1em .3em;border-radius:3px}
+@media (max-width:34rem){.notes dl{grid-template-columns:1fr}.notes dt{margin-top:.4rem}}
+</style>
+</head>
+<body>
+
+<!-- Faux portraits. In the app these are uploaded JPEGs; here they are inline SVG
+     so the file stays self-contained and there is no fourth licence to carry. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="p1" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#7a4c22"/>
+    <ellipse cx="50" cy="40" rx="46" ry="40" fill="#a9712f"/>
+    <ellipse cx="50" cy="34" rx="26" ry="24" fill="#c08c4c" opacity=".5"/>
+    <path d="M2 100c4-19 18-27 48-27s44 8 48 27z" fill="#3b2410"/>
+    <path d="M50 20c15 0 24 13 24 30v22c-6-7-13-10-24-10s-18 3-24 10V50c0-17 9-30 24-30z" fill="#2a1a0b"/>
+    <ellipse cx="50" cy="50" rx="11" ry="14" fill="#d9a468"/>
+  </symbol>
+  <symbol id="p2" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#22331f"/>
+    <ellipse cx="50" cy="40" rx="46" ry="40" fill="#3d5c36"/>
+    <ellipse cx="50" cy="34" rx="26" ry="24" fill="#6d9b6b" opacity=".5"/>
+    <path d="M2 100c4-19 18-27 48-27s44 8 48 27z" fill="#14200f"/>
+    <path d="M50 20c15 0 24 13 24 30v22c-6-7-13-10-24-10s-18 3-24 10V50c0-17 9-30 24-30z" fill="#0f1a0c"/>
+    <ellipse cx="50" cy="50" rx="11" ry="14" fill="#c8a882"/>
+  </symbol>
+  <symbol id="p3" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#2e2947"/>
+    <ellipse cx="50" cy="40" rx="46" ry="40" fill="#4b4272"/>
+    <ellipse cx="50" cy="34" rx="26" ry="24" fill="#8d82bd" opacity=".5"/>
+    <path d="M2 100c4-19 18-27 48-27s44 8 48 27z" fill="#191531"/>
+    <path d="M50 20c15 0 24 13 24 30v22c-6-7-13-10-24-10s-18 3-24 10V50c0-17 9-30 24-30z" fill="#120f24"/>
+    <ellipse cx="50" cy="50" rx="11" ry="14" fill="#e0c6b2"/>
+  </symbol>
+  <symbol id="glyph" viewBox="0 0 24 24">
+    <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.4 0-8 2.7-8 6v2h16v-2c0-3.3-3.6-6-8-6Z"/>
+  </symbol>
+</svg>
+
+<div class="appbar">
+  <b>Character sheet manager</b>
+  <span class="sp"></span>
+  <span class="who">kernelgo1@gmail.com</span>
+  <span class="mark"><s>SRD 3.5</s><i>OPEN GAME LICENSE</i></span>
+</div>
+
+<main>
+  <h1>Your characters</h1>
+
+  <form class="newform" onsubmit="event.preventDefault()">
+    <label>
+      <span class="ground-label">New character</span>
+      <input type="text" placeholder="Name">
+    </label>
+    <button class="btn-primary" type="submit">Create</button>
+  </form>
+
+  <div class="roll">
+    <div class="cols head" aria-hidden="true">
+      <span></span>
+      <span>Character</span>
+      <span>Race &amp; campaign</span>
+      <span class="lvl">Lvl</span>
+      <span class="when">Edited</span>
+      <span></span>
+    </div>
+
+    <ul>
+      <li class="cols row">
+        <button class="tok" aria-label="Change the portrait of Bramwell Ashgrove">
+          <svg viewBox="0 0 100 100"><use href="#p1"/></svg>
+        </button>
+        <button class="open" aria-label="Open Bramwell Ashgrove">
+          <span class="nm">Bramwell Ashgrove</span>
+          <span class="cl">Rogue 4 / Fighter 3</span>
+        </button>
+        <p class="meta">Human · Curse of the Crimson Throne</p>
+        <p class="lvl">7</p>
+        <p class="when">3 days ago</p>
+        <div class="menuwrap">
+          <button class="more" aria-label="More for Bramwell Ashgrove" aria-haspopup="menu" aria-expanded="false">⋯</button>
+          <div class="menu" role="menu" hidden>
+            <button role="menuitem">Rename Bramwell Ashgrove</button>
+            <button role="menuitem">Add a portrait</button>
+            <hr>
+            <button role="menuitem" class="danger">Delete Bramwell Ashgrove</button>
+          </div>
+        </div>
+      </li>
+
+      <li class="cols row">
+        <button class="tok" aria-label="Add a portrait for Zul'deroth">
+          <svg class="glyph" viewBox="0 0 24 24"><use href="#glyph"/></svg>
+        </button>
+        <button class="open" aria-label="Open Zul'deroth">
+          <span class="nm">Zul'deroth</span>
+          <span class="cl">druide 4 / mage 2 / Arcane Hiérophante 1</span>
+        </button>
+        <p class="meta">Humain · Les Ombres d'Averoigne</p>
+        <p class="lvl">7</p>
+        <p class="when fresh">2 hours ago</p>
+        <div class="menuwrap">
+          <button class="more" aria-label="More for Zul'deroth" aria-haspopup="menu" aria-expanded="false">⋯</button>
+          <div class="menu" role="menu" hidden>
+            <button role="menuitem">Rename Zul'deroth</button>
+            <button role="menuitem">Add a portrait</button>
+            <hr>
+            <button role="menuitem" class="danger">Delete Zul'deroth</button>
+          </div>
+        </div>
+      </li>
+
+      <li class="cols row">
+        <button class="tok" aria-label="Change the portrait of Théodwyn of the Verdant March">
+          <svg viewBox="0 0 100 100"><use href="#p3"/></svg>
+        </button>
+        <button class="open" aria-label="Open Théodwyn of the Verdant March">
+          <span class="nm">Théodwyn of the Verdant March</span>
+          <span class="cl">Wizard 12</span>
+        </button>
+        <p class="meta">Elf · Rise of the Runelords</p>
+        <p class="lvl">12</p>
+        <p class="when">3 weeks ago</p>
+        <div class="menuwrap">
+          <button class="more" aria-label="More for Théodwyn of the Verdant March" aria-haspopup="menu" aria-expanded="false">⋯</button>
+          <div class="menu" role="menu" hidden>
+            <button role="menuitem">Rename Théodwyn</button>
+            <button role="menuitem">Change the portrait</button>
+            <hr>
+            <button role="menuitem" class="danger">Delete Théodwyn</button>
+          </div>
+        </div>
+      </li>
+
+      <li class="cols row">
+        <button class="tok" aria-label="Change the portrait of Marrow-Grin, Devourer of Pallid Hopes">
+          <svg viewBox="0 0 100 100"><use href="#p2"/></svg>
+        </button>
+        <button class="open" aria-label="Open Marrow-Grin, Devourer of Pallid Hopes">
+          <span class="nm">Marrow-Grin, Devourer of Pallid Hopes</span>
+          <span class="cl">Barbarian 5 / Fighter 2 / Rogue 1</span>
+        </button>
+        <p class="meta">Half-orc · Curse of the Crimson Throne</p>
+        <p class="lvl">8</p>
+        <p class="when">5 months ago</p>
+        <div class="menuwrap">
+          <button class="more" aria-label="More for Marrow-Grin" aria-haspopup="menu" aria-expanded="false">⋯</button>
+          <div class="menu" role="menu" hidden>
+            <button role="menuitem">Rename Marrow-Grin</button>
+            <button role="menuitem">Change the portrait</button>
+            <hr>
+            <button role="menuitem" class="danger">Delete Marrow-Grin</button>
+          </div>
+        </div>
+      </li>
+
+      <!-- The two states today's card handles worst: nothing filled in yet. -->
+      <li class="cols row">
+        <button class="tok" aria-label="Add a portrait for test2">
+          <svg class="glyph" viewBox="0 0 24 24"><use href="#glyph"/></svg>
+        </button>
+        <button class="open" aria-label="Open test2">
+          <span class="nm">test2</span>
+          <span class="cl">No class yet</span>
+        </button>
+        <p class="meta none">Nothing filled in</p>
+        <p class="lvl zero">—</p>
+        <p class="when fresh">6 minutes ago</p>
+        <div class="menuwrap">
+          <button class="more" aria-label="More for test2" aria-haspopup="menu" aria-expanded="false">⋯</button>
+          <div class="menu" role="menu" hidden>
+            <button role="menuitem">Rename test2</button>
+            <button role="menuitem">Add a portrait</button>
+            <hr>
+            <button role="menuitem" class="danger">Delete test2</button>
+          </div>
+        </div>
+      </li>
+
+      <li class="cols row unnamed">
+        <button class="tok" aria-label="Add a portrait for Unnamed character">
+          <svg class="glyph" viewBox="0 0 24 24"><use href="#glyph"/></svg>
+        </button>
+        <button class="open" aria-label="Open Unnamed character">
+          <span class="nm">Unnamed character</span>
+          <span class="cl">Cleric 1</span>
+        </button>
+        <p class="meta">Dwarf</p>
+        <p class="lvl">1</p>
+        <p class="when fresh">Just now</p>
+        <div class="menuwrap">
+          <button class="more" aria-label="More for Unnamed character" aria-haspopup="menu" aria-expanded="false">⋯</button>
+          <div class="menu" role="menu" hidden>
+            <button role="menuitem">Name this character</button>
+            <button role="menuitem">Add a portrait</button>
+            <hr>
+            <button role="menuitem" class="danger">Delete Unnamed character</button>
+          </div>
+        </div>
+      </li>
+    </ul>
+
+    <p class="foot">6 characters</p>
+  </div>
+
+  <div class="notes">
+    <h2>What this exploration is claiming</h2>
+    <dl>
+      <dt>Axis</dt>
+      <dd>A character list is a register, not a gallery. Optimise for scanning fifteen, not
+        for displaying two.</dd>
+
+      <dt>Signature</dt>
+      <dd>The tinted <b>level gutter</b> running the height of the sheet. One figure per line,
+        tabular, centred — the only column on the page you can read without reading any words.</dd>
+
+      <dt>Delete</dt>
+      <dd>Demoted into a <code>⋯</code> menu at the row end, revealed on hover and on
+        <code>:focus-within</code>, but present in the tab order at all times. Today it is the
+        loudest control on a card whose real purpose is to be opened.</dd>
+
+      <dt>Free win</dt>
+      <dd><code>updated_at</code> is already on <code>CharacterSummary</code> and the card throws
+        it away. "Edited 3 days ago" via <code>Intl.RelativeTimeFormat</code> is locale-aware
+        without a French string of its own.</dd>
+
+      <dt>Empty states</dt>
+      <dd>An em dash in the level gutter and a muted "Nothing filled in" — a blank cell in a
+        register reads as a missing value, which is exactly what it is, whereas a blank area on a
+        card reads as a broken card.</dd>
+
+      <dt>Costs</dt>
+      <dd>A <code>DropdownMenu</code> primitive (shadcn, already available); two dictionary keys
+        in <code>en.ts</code> and <code>fr.ts</code>; the grid track duplicated between header and
+        row. No API change, no new font, no new icon, no <code>/api/derive</code> call.</dd>
+
+      <dt>Kept</dt>
+      <dd>Name and class line remain <b>one</b> control carrying <code>characters.open</code>;
+        the portrait remains an upload control whose writes never touch <code>version</code>;
+        text outside the sheet stays on <code>--on-ground</code>.</dd>
+
+      <dt>Risk</dt>
+      <dd>A register with two rows in it looks thin where a two-card grid at least looked
+        deliberate. Worth testing against a brand-new account.</dd>
+    </dl>
+  </div>
+</main>
+
+<script>
+// Menu behaviour, enough to judge the interaction. In the app this is Radix.
+document.querySelectorAll(".more").forEach((btn) => {
+  const menu = btn.nextElementSibling;
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = !menu.hidden;
+    closeAll();
+    if (open) return;
+    menu.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+  });
+});
+function closeAll() {
+  document.querySelectorAll(".menu").forEach((m) => {
+    m.hidden = true;
+    m.previousElementSibling.setAttribute("aria-expanded", "false");
+  });
+}
+document.addEventListener("click", closeAll);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAll(); });
+</script>
+</body>
+</html>

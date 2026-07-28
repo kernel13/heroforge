@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seven design explorations — the sheet, and the character list</title>
+<style>
+:root{
+  --bg:#14100c; --panel:#1d1813; --line:#3a3128; --ink:#ece2d2; --soft:#a3937e;
+  --gold:#d8a75f; --red:#d4675a; --ok:#7fb98e;
+  --display:"Hoefler Text","Iowan Old Style",Georgia,serif;
+  --body:ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 var(--body)}
+.wrap{max-width:60rem;margin:0 auto;padding:2.5rem 1.5rem 6rem}
+h1{font:400 2.4rem/1.1 var(--display);margin:0 0 .4rem}
+.lede{color:var(--soft);margin:0 0 2.5rem;max-width:44rem}
+h2{font:400 1.5rem/1.2 var(--display);margin:2.75rem 0 .75rem;
+  padding-bottom:.4rem;border-bottom:1px solid var(--line)}
+h3{font:600 .72rem/1 var(--body);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--soft);margin:1.5rem 0 .5rem}
+a{color:var(--gold)}
+code{font:.88em var(--mono);background:rgba(255,255,255,.06);padding:.1em .35em;border-radius:3px}
+
+.cards{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));margin-top:1rem}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:.4rem;
+  padding:1rem 1.1rem 1.1rem;display:flex;flex-direction:column}
+.card .no{font:.7rem/1 var(--mono);color:var(--gold);letter-spacing:.1em}
+.card h4{margin:.4rem 0 .1rem;font:400 1.25rem/1.2 var(--display)}
+.card .axis{font-size:.82rem;color:var(--soft);margin:.35rem 0 .7rem}
+.card dl{margin:0 0 .9rem;font-size:.82rem;display:grid;grid-template-columns:auto 1fr;gap:.15rem .6rem}
+.card dt{color:var(--soft)}
+.card dd{margin:0}
+.card .open{margin-top:auto;display:inline-block;text-align:center;
+  border:1px solid var(--gold);color:var(--gold);text-decoration:none;
+  padding:.4rem .8rem;border-radius:.25rem;font-size:.85rem}
+.card .open:hover{background:var(--gold);color:var(--bg)}
+.cost{font:.7rem/1 var(--body);letter-spacing:.08em;text-transform:uppercase;
+  padding:.2rem .45rem;border-radius:2px;display:inline-block}
+.cost.low{background:rgba(127,185,142,.18);color:var(--ok)}
+.cost.mid{background:rgba(216,167,95,.18);color:var(--gold)}
+.cost.high{background:rgba(212,103,90,.18);color:var(--red)}
+
+table{width:100%;border-collapse:collapse;font-size:.86rem;margin:.75rem 0}
+th,td{text-align:left;padding:.45rem .6rem;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 .68rem/1.4 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--soft)}
+td:first-child{white-space:nowrap;color:var(--gold)}
+
+.finding{background:var(--panel);border-left:3px solid var(--red);border-radius:0 .3rem .3rem 0;
+  padding:.8rem 1rem;margin:1rem 0}
+.finding h4{margin:0 0 .3rem;font:600 .95rem/1.3 var(--body)}
+.finding p{margin:.4rem 0 0;font-size:.88rem}
+.finding.note{border-left-color:var(--gold)}
+
+ul{padding-left:1.2rem}
+li{margin-bottom:.35rem}
+.src{font-size:.82rem;color:var(--soft)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Seven design explorations</h1>
+<p class="lede">Each of these is a working HTML page, not a picture — resize it, tab through it,
+type in it. Four are of the character sheet; three are of the character list you land on before
+it. None of them touches <code>web/src/</code>.</p>
+
+<p>They differ along one <b>named axis</b> each, so that picking one answers a question rather than
+picking a favourite. Each takes a position, and the positions are separable — you can adopt B's
+layout with A's grammar, or G's tile with F's confirm step.</p>
+
+<h2>The sheet · A–D</h2>
+
+<p>These four share the same character (Sera Valhen, Fighter 4 / Rogue 3), the same real field
+labels, and a skills table at a realistic width. The question underneath all four is the same:
+<b>deriving the arithmetic is the product, so how should a number the application worked out look
+different from a number you typed?</b></p>
+
+<div class="cards">
+
+  <div class="card">
+    <span class="no">A</span>
+    <h4>Refined Parchment</h4>
+    <p class="axis">The control. Same structure as today; only hierarchy and density change.</p>
+    <dl>
+      <dt>Axis</dt><dd>Is the current layout fine and only under-typeset?</dd>
+      <dt>Derived</dt><dd>Ink stamped on paper vs. a ruled blank</dd>
+      <dt>Cost</dt><dd><span class="cost low">Low — CSS and markup</span></dd>
+    </dl>
+    <a class="open" href="01-refined-parchment.html">Open A</a>
+  </div>
+
+  <div class="card">
+    <span class="no">B</span>
+    <h4>Command Rail</h4>
+    <p class="axis">A sticky rail carries every derived value and never scrolls away.</p>
+    <dl>
+      <dt>Axis</dt><dd>Should derived combat numbers ever leave the screen?</dd>
+      <dt>Derived</dt><dd>Regional — the rail vs. the column</dd>
+      <dt>Cost</dt><dd><span class="cost mid">Medium — a new shell</span></dd>
+    </dl>
+    <a class="open" href="02-command-rail.html">Open B</a>
+  </div>
+
+  <div class="card">
+    <span class="no">C</span>
+    <h4>Codex Grid</h4>
+    <p class="axis">No page tabs. One document, a contents column, skills in two columns.</p>
+    <dl>
+      <dt>Axis</dt><dd>Is the paper sheet's two-page split worth keeping?</dd>
+      <dt>Derived</dt><dd>Typographic — the machine face, unframed</dd>
+      <dt>Cost</dt><dd><span class="cost high">High — tests and a11y</span></dd>
+    </dl>
+    <a class="open" href="03-codex-grid.html">Open C</a>
+  </div>
+
+  <div class="card">
+    <span class="no">D</span>
+    <h4>Arcane Schematic</h4>
+    <p class="axis">Cyanotype ground, drafting plates, and derivations drawn as diagrams.</p>
+    <dl>
+      <dt>Axis</dt><dd>Is the leather texture worth the contrast it costs?</dd>
+      <dt>Derived</dt><dd>Drawn — components converge on the answer</dd>
+      <dt>Cost</dt><dd><span class="cost mid">Medium — palette ×2 + a component</span></dd>
+    </dl>
+    <a class="open" href="04-arcane-schematic.html">Open D</a>
+  </div>
+
+</div>
+
+<h2>The character list · E–G</h2>
+
+<p>A separate question, on a separate screen: <b>what is a character in a list?</b> Today it is a
+card with a 64px portrait, a name, a class line, a level badge and a Delete button — and with two
+characters on it the card is mostly empty parchment. Each of these three renders the same six
+characters, including the ones the current card handles worst: nothing filled in, no name, three
+classes, and a name too long for its box.</p>
+
+<p>All three also take a position on <b>Delete</b>, which is independent of the tile. It is
+currently the widest, highest-contrast control on a card whose real purpose is to be opened.</p>
+
+<div class="cards">
+
+  <div class="card">
+    <span class="no">E</span>
+    <h4>Muster Roll</h4>
+    <p class="axis">One parchment sheet, one line per character, columns that line up.</p>
+    <dl>
+      <dt>Axis</dt><dd>Is a character list a gallery or a register?</dd>
+      <dt>Signature</dt><dd>A tinted level gutter running the sheet's height</dd>
+      <dt>Delete</dt><dd>An overflow menu, revealed on hover and focus</dd>
+      <dt>Cost</dt><dd><span class="cost mid">Medium — a menu primitive</span></dd>
+    </dl>
+    <a class="open" href="05-muster-roll.html">Open E</a>
+  </div>
+
+  <div class="card">
+    <span class="no">F</span>
+    <h4>Portrait Plate</h4>
+    <p class="axis">The picture is the tile, with a parchment label across its foot.</p>
+    <dl>
+      <dt>Axis</dt><dd>Does the portrait earn the machinery it already has?</dd>
+      <dt>Signature</dt><dd>A monogram cut into the stripe where there is no picture</dd>
+      <dt>Delete</dt><dd>A two-step confirm in the label itself</dd>
+      <dt>Cost</dt><dd><span class="cost high">High — a stretched-link pattern</span></dd>
+    </dl>
+    <a class="open" href="06-portrait-plate.html">Open F</a>
+  </div>
+
+  <div class="card">
+    <span class="no">G</span>
+    <h4>Slate Nameplate</h4>
+    <p class="axis">A slate head band over a parchment body — the rail's grammar, on the list.</p>
+    <dl>
+      <dt>Axis</dt><dd>Should the first screen teach derived-vs-typed?</dd>
+      <dt>Signature</dt><dd>A class ledger whose figures line up under the gold total</dd>
+      <dt>Delete</dt><dd>Demoted to quiet text in the foot</dd>
+      <dt>Cost</dt><dd><span class="cost mid">Medium — rail tokens leave the rail</span></dd>
+    </dl>
+    <a class="open" href="07-slate-nameplate.html">Open G</a>
+  </div>
+
+</div>
+
+<div class="finding note">
+  <h4><code>updated_at</code> is already on <code>CharacterSummary</code> and the card throws it
+  away</h4>
+  <p>The list endpoint sends it; <code>CharacterList.tsx</code> never reads it. "Edited 3 days ago"
+  is the single most useful thing a list of half-finished sheets can say, it wants no API change,
+  and <code>Intl.RelativeTimeFormat</code> writes it in the reader's language without a French
+  string of its own. E and G both show it; it is adoptable on the current card as it stands.</p>
+</div>
+
+<h2>What the research said about the sheet, and what it changed</h2>
+
+<p>Three agents read design-systems writing on dense forms, character sheets across a dozen games
+and VTTs, and licensing-safe aesthetic sources. Four findings actually changed what got built:</p>
+
+<table>
+  <thead><tr><th>Finding</th><th>What it changed</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>A tinted tile is the wrong marker for a derived value</td>
+      <td>Because a derived <code>&lt;output&gt;</code> here deliberately goes <b>empty</b> when a
+      skill has no ranks, a coloured fill leaves an empty coloured box — which reads as an unfilled
+      input. All four mockups therefore mark derived values by <b>removing the frame</b> and adding
+      a second non-colour channel (face, weight, or place). That is also what WCAG 1.4.1 asks for,
+      and it retires the current <code>bg-secondary</code> tile.</td>
+    </tr>
+    <tr>
+      <td>Printing a total beside its components at equal weight makes people double-count</td>
+      <td>Observed in playtesting of pre-printed 5e sheets. So no mockup puts
+      <code>total</code> and <code>armour 8 · shield 2 · Dex 1</code> on one line at one weight:
+      A mutes them into a sentence, B folds them behind a disclosure, D draws them converging.</td>
+    </tr>
+    <tr>
+      <td>Tabs cost discoverability, but removing them costs more</td>
+      <td>D&amp;D Beyond's revamp replaced tabs with a one-section-at-a-time dropdown and was
+      attacked for it; the same feedback thread blamed <em>undifferentiated emphasis</em>, not the
+      parchment. So C keeps the tab removal as the deliberate risk, and A, B and D keep the strip.</td>
+    </tr>
+    <tr>
+      <td>Multi-column skill lists are the standard answer to forty rows</td>
+      <td>Call of Cthulhu 7e fits 40+ skills in four columns as one alphabetical run, with blank
+      repeat rows inline. C and D both run two columns; the column break must follow
+      <em>sorted display positions</em> while every write stays on the stored index.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Two things worth fixing whichever sheet direction wins</h2>
+
+<div class="finding">
+  <h4>The field border fails WCAG 1.4.11 today</h4>
+  <p><code>--border: #d8c3a8</code> composited over the card measures about <b>1.47:1</b> against the
+  panel face. The minimum for a non-text boundary that carries meaning — and an input's border is
+  exactly that, it is what says "this is a field" — is <b>3:1</b>. Every candidate palette failed the
+  same way until the border was deliberately darkened; the four mockups use borders measured at
+  3.2:1 to 4.1:1. <code>--muted-foreground</code> (5.5:1) and <code>--primary</code> (7.4:1) already
+  pass comfortably, so this is one token, not a repaint.</p>
+</div>
+
+<div class="finding note">
+  <h4><code>tabular-nums</code> currently sits on an unknown font</h4>
+  <p>The body face is the reader's own system sans, so <code>font-variant-numeric: tabular-nums</code>
+  in <code>styles.css</code> does whatever that machine's default sans does — it is a silent no-op on
+  a face without the feature. Cinzel and MedievalSharp are display faces and are not in the numeric
+  path. If a column of forty totals is meant to line up everywhere, one numeric face has to be
+  bundled. Confirmed to ship tabular lining figures: Source Sans 3, Lato, Noto Sans, Recursive; any
+  monospace is tabular by construction. Read
+  <code>node_modules/@fontsource/&lt;name&gt;/LICENSE</code> before adopting — Google Fonts is not
+  uniformly OFL.</p>
+  <p><b>And it is two settings, not one.</b> Mockup A's first build set its derived numbers in the
+  display serif and <code>10</code> came out as <code>IO</code> — Hoefler Text, Iowan Old Style and
+  Georgia all default to <em>old-style</em> figures, which descend below the baseline and vary in
+  height. A column of totals needs <code>lining-nums</code> as well as <code>tabular-nums</code>.
+  Anywhere a number is set in a serif, ask for both.</p>
+</div>
+
+<div class="finding note">
+  <h4><code>CLAUDE.md</code>'s flat-footed sentence describes something the engine does not do</h4>
+  <p>The document says <code>effective_dex_bonus</code> is applied to <code>armor_class</code>,
+  <code>touch_ac</code> <em>and</em> <code>flat_footed_ac</code> "alike". The engine does not:
+  <code>defense.py:73</code> is <code>flat_footed_ac(total_ac, effective_dex) = total_ac -
+  max(effective_dex, 0)</code>, which is the SRD rule, and the golden character pins it —
+  <code>test_flat_footed_removes_the_capped_bonus</code> asserts 22 against a total of 23. So the
+  code is right and the prose is misleading; the mockups follow the code. The invariant worth
+  writing down is the one the <code>max(…, 0)</code> exists for: a character with a Dexterity
+  <em>penalty</em> is no harder to hit flat-footed.</p>
+</div>
+
+<h2>Does the sheet survive French?</h2>
+
+<p>All four were re-rendered with French labels and skill names — <i>Déplacement silencieux</i>,
+<i>Neutralisation de mécanisme</i>, <i>Connaissance (souterrains)</i>, <i>Résistance à la magie</i>,
+<i>Classe d'armure</i> — because a layout that only works because "Dex" is three characters is not a
+layout. Three results:</p>
+
+<ul>
+  <li><b>The two-column skills table holds.</b> This was the thing most likely to break, and it
+  doesn't: at 1600px neither C nor D ellipsises the longest French skill name. The two-column idea —
+  the most stealable thing in either — is not English-only. Below about 1400px the columns collapse
+  to one, which is the same behaviour as English, just sooner.</li>
+  <li><b>B's rail holds at 19rem.</b> <i>Mod. de caractéristique</i>, <i>Classe d'armure</i>,
+  <i>Jets de sauvegarde</i> and <i>Comment ce nombre est obtenu</i> all stay on one line. The
+  three-column saves strip fits <i>Fort</i> / <i>Réf</i> / <i>Volonté</i>.</li>
+  <li><b>One real break, now fixed in all four:</b> a field label that is one line in English and
+  two in French stretched its grid cell and dropped that field's input a line below its neighbours,
+  so a row of six inputs stopped being a row. <i>Spell resistance</i> → <i>Résistance à la magie</i>
+  and <i>Base attack bonus</i> → <i>Bonus de base à l'attaque</i> both did it. The fix is
+  <code>align-items:end</code> on the field grid, so a wrapped label grows upward. <b>Worth
+  checking in the real sheet</b> — <code>fields.tsx</code>'s <code>Row</code> uses
+  <code>items-end</code> already and is fine, but any grid added later needs the same.</li>
+</ul>
+
+<p class="src">Minor and not fixed: a saving throw's name and its key ability (<i>Vigueur</i> +
+<code>CON</code>) stack onto two lines in the narrowest plates. It is legible and it is honest about
+the width; worth knowing before that cell is asked to hold anything else.</p>
+
+<h2>Recommendation for the sheet</h2>
+
+<p>If only one ships: <b>A's grammar inside B's layout</b>. The ink-stamp-vs-ruled-blank distinction
+is the cheapest change with the largest effect on the thing that makes this application worth using,
+and the sticky rail is what turns "the sheet derives values" from a claim into something you watch
+happen — change Dexterity at the bottom of the skills table and armour class moves in the corner of
+your eye. Both keep the two-page split, so no test strategy changes.</p>
+
+<p><b>D is the one to look at if the parchment is negotiable.</b> Its drawn derivations are the most
+directly on-brief idea in the set, and its ground is two CSS gradients rather than a raster, so it
+costs no image and survives the PDF export as flat colour. It is also the one that might read as the
+wrong room for a fantasy sheet — which is precisely the thing a mockup is for.</p>
+
+<p><b>C is the experiment, not the proposal.</b> Two-column skills and a full-width layout are worth
+stealing on their own; dropping the tabs is a separate decision with a real test cost, and the
+evidence from D&amp;D Beyond's revamp runs against it.</p>
+
+<h3>Fonts in these files</h3>
+<p class="src">The mockups render in faces available on macOS so the typography previews honestly;
+each file's header comment names the shippable <code>@fontsource</code> equivalent. Nothing here
+fetches anything — no CDN, no web font, no remote image, in keeping with the deployment's
+same-origin rule.</p>
+
+</div>
+</body>
+</html>

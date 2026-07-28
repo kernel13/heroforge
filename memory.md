@@ -29,6 +29,13 @@ Phase 1 of `docs/superpowers/specs/2026-07-25-heroforge-design.md` is **implemen
 
 See CLAUDE.md — it now carries the real invocations.
 
+There is no seeded superuser (an app shipping a default admin password is a liability). Grant the
+first one by hand after signing up:
+```
+docker compose exec api python scripts/grant_superuser.py you@example.com
+```
+Then sign out and back in — the admin check reads the session, not the request.
+
 Scratch DB for `alembic revision --autogenerate`:
 ```
 docker run -d --rm --name hf-pg -e POSTGRES_PASSWORD=heroforge -e POSTGRES_USER=heroforge \
@@ -73,6 +80,11 @@ DATABASE_URL=postgresql+asyncpg://heroforge:heroforge@localhost:55432/heroforge 
   returned a truthy request, and **admitted anonymous visitors**. Every other test builds the app
   with `mount_reference_admin=False`, so nothing exercised it. `tests/test_admin.py` now does,
   and both failures were confirmed to reproduce against the original code.
+- **The test suite inherited the repo-root `.env`.** `pydantic-settings` reads it, so a local
+  `VERIFICATION_REQUIRED=false` (which the local-testing `.env` sets) turned "an unverified user
+  cannot log in" red on a developer's machine and green in CI, which has no such file.
+  `tests/conftest.py` now sets `Settings.model_config["env_file"] = None` and configures itself
+  from the environment alone.
 - **App logger had no handler** under uvicorn, so with no SMTP configured the verification link
   was silently discarded and a fresh deployment could never activate its first account.
   `src/heroforge/logging.py` fixes it; unsent mail logs at WARNING.
@@ -88,17 +100,18 @@ Bramwell Tosscobble, gnome Fighter 5 / Rogue 2. Small (ac_size +1, grapple_size_
 STR 13 DEX 16 CON 14 (temp 16) INT 12 WIS 10 CHA 8, full plate (−6) + heavy steel shield (−2),
 carried weight exactly 100 lb = the medium limit for STR 13.
 AC 23 / touch 13 / flat-footed 22, initiative 7, grapple 3, ACP −8, Fort 8 / Ref 7 / Will 1,
-Swim −10, Climb 3, Tumble −2 (3.5 ranks floor to 3).
+Swim −10, Climb 3, Tumble −2 (3 cross-class ranks, counted in full).
 
 ## Invariants pinned by tests
 
 - `flat_footed_ac = armor_class - max(effective_dex_bonus, 0)`.
-- cross-class `max_ranks = (level + 3) / 2` stays a half-integer; compared against *unfloored* ranks.
+- `max_ranks = level + 3` for a class skill, `(level + 3) // 2` cross-class — the SRD halving,
+  rounded down so every cap stays an integer. `is_class_skill` is keyword-only with no default.
 - ACP stored non-positive; the engine ADDS it; Swim adds it twice.
 - `grapple_size_modifier` is a stored column, never derived from `size`.
 - Load category boundaries inclusive at the top.
 - The engine never raises; violations become `DerivedSheet.warnings`.
-- `ranks` serialises as a decimal string; "0" and "0.0" are the same value.
+- `ranks` is an int end to end and serialises as a JSON number; `3.5` is a 422, never a stored 3.
 - The two debounces stay separate (250 ms derive / 2 s save).
 
 ## Licensing posture

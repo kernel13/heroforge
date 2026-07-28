@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F — Portrait Plate · HeroForge character-list exploration</title>
+<style>
+/* ============================================================================
+   EXPLORATION F — "Portrait Plate"
+
+   AXIS: imagery. The portrait already exists as a feature — its own routes, its
+   own cache-buster, its own upload control — and the card gives it 64 pixels in
+   a corner. Either it is worth that machinery or it is not.
+
+   This exploration takes the position that it is, and makes the portrait the
+   tile: a framed plate with the picture filling it and a parchment label across
+   the foot, the way a card in a card game or a label under a museum portrait
+   works. You recognise your own character by their face before you read a name.
+
+   THE PROBLEM THIS FORCES YOU TO SOLVE, which is the real reason to build it:
+   most characters have no portrait, and a portrait-led design that shrugs at
+   that is a design that only works in a screenshot. So the empty plate is the
+   signature element here, not the filled one — see MONOGRAM below.
+
+   POSITION ON DELETE: a two-step confirm on the plate itself. "Delete" is a
+   quiet text control in the label's foot; pressing it turns the label strip
+   into the question and two answers. No dialog, no menu, nothing to dismiss —
+   and no possibility of losing months of play to one stray click.
+
+   INVERSION, DELIBERATE AND WORTH ARGUING ABOUT: today the largest control on
+   the card uploads a portrait and the smallest opens the sheet. Here the whole
+   plate opens the sheet — a stretched `::after` over the label's name button —
+   and the upload moves to a pill in the plate's corner, revealed on hover and
+   on focus. The biggest target should do the commonest thing.
+
+   COST: medium-high. New markup, a stretched-link pattern that has to keep the
+   portrait control clickable above it, three dictionary keys, and a real
+   decision about aspect ratio that affects how many tiles fit a row.
+
+   Fonts are the real bundled files, read out of `web/node_modules`.
+   ========================================================================= */
+
+@font-face{
+  font-family:"MedievalSharp";font-style:normal;font-weight:400;font-display:swap;
+  src:url("../../web/node_modules/@fontsource/medievalsharp/files/medievalsharp-latin-400-normal.woff2") format("woff2");
+}
+@font-face{
+  font-family:"Cinzel";font-style:normal;font-weight:700;font-display:swap;
+  src:url("../../web/node_modules/@fontsource/cinzel/files/cinzel-latin-700-normal.woff2") format("woff2");
+}
+
+:root{
+  /* Restated from web/src/styles.css. Nothing here is a new colour. */
+  --ink:#2b1f19;
+  --ink-soft:#6d5c50;
+  --rule:#d8c3a8;
+  --card:#fbf4e9;
+  --secondary:#f1e2c8;
+  --muted:#efdbc4;
+  --vermilion:#8a2b1c;
+  --heading:#5c3a24;
+  --field:#ffffff;
+  --destructive:#9b2c20;
+  --danger-soft:#fbeae8;
+  --on-ground:#f0e2cc;
+  --on-ground-muted:#c9b393;
+  --rail:#241a13;
+  --radius:.375rem;
+
+  --body:ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --display:"MedievalSharp","Hoefler Text",Georgia,serif;
+  --emblem:"Cinzel",Georgia,serif;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;font:15px/1.45 var(--body);color:var(--ink);
+  background-color:#78421a;
+  background-image:
+    radial-gradient(140% 100% at 70% 0%, rgba(0,0,0,.22), rgba(0,0,0,.5)),
+    repeating-linear-gradient(100deg,#78421a 0 9px,#8b4f21 9px 18px);
+  background-attachment:fixed;
+}
+input,button{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #e0b273;outline-offset:2px;border-radius:2px}
+
+/* --- chrome -------------------------------------------------------------- */
+.appbar{display:flex;align-items:center;gap:1rem;padding:.55rem 1.25rem;
+  background:rgba(251,244,234,.95);border-bottom:1px solid var(--rule)}
+.appbar b{font-weight:600;font-size:.95rem}
+.appbar .sp{margin-left:auto}
+.appbar .who{color:var(--ink-soft);font-size:.85rem}
+.mark{display:flex;flex-direction:column;padding-left:1rem;border-left:1px solid var(--rule);
+  font-family:var(--emblem);color:var(--vermilion);line-height:1.05}
+.mark s{text-decoration:none;font-weight:700;letter-spacing:.08em;font-size:.95rem}
+.mark i{font-style:normal;font-size:.56rem;letter-spacing:.12em;color:var(--ink-soft)}
+
+main{max-width:70rem;margin:0 auto;padding:2rem 1.25rem 5rem}
+h1{margin:0;font:600 1.25rem/1.2 var(--body);letter-spacing:-.01em;color:var(--on-ground)}
+
+.newform{display:flex;align-items:flex-end;gap:.75rem;margin:1rem 0 1.75rem}
+.newform label{display:flex;flex-direction:column;gap:.25rem;flex:1;max-width:16rem}
+.ground-label{font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.13em;
+  color:var(--on-ground-muted)}
+.newform input{background:var(--field);border:1px solid var(--rule);border-radius:var(--radius);
+  padding:.35rem .55rem;height:2rem;color:var(--ink)}
+.btn-primary{background:var(--vermilion);color:#fdf7ee;border:0;border-radius:var(--radius);
+  padding:0 .85rem;height:2rem;font-size:.875rem;font-weight:500}
+
+/* --- the gallery --------------------------------------------------------- */
+.gallery{list-style:none;margin:0;padding:0;display:grid;gap:1.15rem;
+  grid-template-columns:repeat(auto-fill,minmax(13rem,1fr))}
+/*
+ * Two up on a phone, never one. `auto-fill` with a 13rem minimum drops to a
+ * single column below about 27rem, and a 4:5 plate at full phone width is one
+ * character per screen — a gallery you have to scroll to see a second item in
+ * is not a gallery. The label tightens to match.
+ */
+@media (max-width:30rem){
+  .gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}
+  .open .nm{font-size:.95rem}
+  .open .cl,.meta{font-size:.72rem}
+  .labelfoot .when{font-size:.68rem}
+}
+
+.plate{
+  position:relative;display:flex;flex-direction:column;height:100%;
+  background:var(--card);border:1px solid var(--rule);border-radius:var(--radius);
+  overflow:hidden;transition:border-color .15s ease,box-shadow .15s ease;
+}
+.plate:hover,.plate:focus-within{border-color:var(--heading);box-shadow:0 6px 20px rgba(0,0,0,.25)}
+
+/* The picture. 4:5 — taller than wide, which is what a portrait is. */
+.face{position:relative;aspect-ratio:4/5;background:var(--secondary);overflow:hidden}
+.face img,.face svg.art{width:100%;height:100%;display:block;object-fit:cover}
+
+/*
+ * THE SIGNATURE: the monogram.
+ *
+ * A character with no portrait gets their initial cut into the page's own woven
+ * stripe, set in MedievalSharp — the face this application already reserves for
+ * the one thing that is a name rather than a category. It is a mark, not an
+ * absence: the plate is complete before anyone uploads anything, and a list of
+ * six portrait-less characters reads as six monograms rather than six failures.
+ *
+ * The letter is `aria-hidden`; the plate is already named by its label.
+ */
+.mono{
+  position:absolute;inset:0;display:grid;place-items:center;
+  background-color:#78421a;
+  background-image:
+    radial-gradient(120% 100% at 50% 0%, rgba(0,0,0,.18), rgba(0,0,0,.55)),
+    repeating-linear-gradient(100deg,#78421a 0 9px,#8b4f21 9px 18px);
+}
+.mono span{
+  font-family:var(--display);font-size:4.5rem;line-height:1;color:var(--on-ground);
+  text-shadow:0 2px 10px rgba(0,0,0,.45);
+  /* Uppercased in CSS, not in the data: a character called "test2" would
+     otherwise be stamped with a lowercase t, which at 4.5rem in MedievalSharp
+     reads as a dagger rather than as an initial. */
+  text-transform:uppercase;
+}
+/* No name at all — no initial to cut. The default glyph, at monogram scale. */
+.mono svg{width:3.5rem;height:3.5rem;fill:var(--on-ground-muted);opacity:.8}
+
+/*
+ * The portrait control. A pill in the plate's corner, above the stretched open
+ * target. It keeps the accessible name it has today, which is the whole of its
+ * name because it carries no text — so the label is not decoration.
+ */
+.shoot{
+  position:absolute;top:.4rem;right:.4rem;z-index:3;
+  width:1.85rem;height:1.85rem;border-radius:999px;display:grid;place-items:center;
+  background:rgba(36,26,19,.72);border:1px solid rgba(240,226,204,.35);color:var(--on-ground);
+  opacity:0;transition:opacity .15s ease;
+}
+.shoot svg{width:1rem;height:1rem;fill:currentColor}
+.plate:hover .shoot,.plate:focus-within .shoot,.shoot:focus-visible{opacity:1}
+.shoot:hover{background:var(--rail)}
+/* Touch has no hover, so the pill is permanent there. */
+@media (hover:none){.shoot{opacity:1}}
+
+/*
+ * The level, stamped into the plate's top-left corner opposite the portrait
+ * pill — a wafer of darker parchment, not a slate chip. Slate is the derived
+ * rail's material and belongs to exploration G.
+ *
+ * It sits inside the picture rather than straddling the seam below it: `.face`
+ * is `overflow:hidden` so the picture stays inside the plate's rounded corner,
+ * and anything hung over that edge is clipped by the same rule.
+ */
+.lvl{
+  position:absolute;left:.4rem;top:.4rem;z-index:2;margin:0;
+  min-width:1.85rem;height:1.85rem;padding:0 .3rem;border-radius:999px;
+  background:rgba(251,244,234,.92);border:1px solid var(--rule);
+  display:grid;place-items:center;line-height:1;
+  font-variant-numeric:tabular-nums lining-nums;font-weight:600;font-size:.9rem;
+  color:var(--heading);
+}
+.lvl.zero{color:#a08e80;font-weight:400;border-style:dashed}
+
+/* --- the label ----------------------------------------------------------- */
+.label{
+  position:relative;display:flex;flex-direction:column;gap:.1rem;flex:1;
+  padding:.55rem .7rem .6rem;border-top:1px solid var(--rule);
+}
+
+/*
+ * Name and class stay ONE control, as they are today, and it carries
+ * `characters.open` as its accessible name rather than assembling one from both
+ * lines. The `::after` is what stretches it over the whole plate: the biggest
+ * target does the commonest thing, and there is still exactly one control in
+ * the tab order for "open this character".
+ */
+.open{background:none;border:0;padding:0;text-align:left;display:block;min-width:0}
+.open::after{content:"";position:absolute;inset:0;z-index:1}
+.plate:has(.confirm:not([hidden])) .open::after{display:none}
+.open .nm{
+  display:block;font-family:var(--display);font-size:1.06rem;line-height:1.2;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.open .cl{display:block;font-size:.8rem;color:var(--ink-soft);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plate:hover .nm{color:var(--vermilion)}
+.unnamed .nm{font-family:var(--body);font-style:italic;font-size:.95rem;color:var(--ink-soft)}
+
+.meta{margin:.3rem 0 0;padding-left:0;font-size:.75rem;color:var(--ink-soft);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta.none{color:#a08e80;font-style:italic}
+
+.labelfoot{display:flex;align-items:center;margin-top:auto;padding-top:.5rem}
+.when{font-size:.72rem;color:#a08e80;font-variant-numeric:tabular-nums lining-nums}
+.kill{
+  position:relative;z-index:2;margin-left:auto;background:none;border:0;padding:.15rem .3rem;
+  font-size:.75rem;color:var(--ink-soft);border-radius:3px;
+}
+.kill:hover{color:var(--destructive);background:var(--danger-soft)}
+
+/*
+ * Step two. The label strip becomes the question, so the answer is given in the
+ * same place the question was asked and nothing covers the plate you are about
+ * to destroy — you can still see whose face it is while you decide.
+ */
+.confirm{
+  position:absolute;inset:0;z-index:4;background:var(--danger-soft);
+  border-top:1px solid var(--destructive);
+  display:flex;flex-direction:column;justify-content:center;gap:.45rem;padding:.6rem .7rem;
+}
+.confirm[hidden]{display:none}
+.confirm p{margin:0;font-size:.8rem;line-height:1.3}
+.confirm .row{display:flex;gap:.4rem}
+.confirm button{border-radius:var(--radius);padding:.25rem .6rem;font-size:.8rem;border:1px solid}
+.confirm .yes{background:var(--destructive);border-color:var(--destructive);color:#fff}
+.confirm .no{background:var(--card);border-color:var(--rule);color:var(--ink)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* --- the notes panel ----------------------------------------------------- */
+.notes{margin-top:2rem;background:var(--card);border:1px solid var(--rule);
+  border-radius:var(--radius);padding:1rem 1.15rem}
+.notes h2{margin:0 0 .6rem;font-size:.72rem;font-weight:600;text-transform:uppercase;
+  letter-spacing:.16em;color:var(--heading)}
+.notes dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:.4rem .9rem;font-size:.86rem}
+.notes dt{color:var(--ink-soft);white-space:nowrap}
+.notes dd{margin:0}
+.notes code{font:.9em ui-monospace,Menlo,monospace;background:rgba(0,0,0,.06);
+  padding:.1em .3em;border-radius:3px}
+@media (max-width:34rem){.notes dl{grid-template-columns:1fr}.notes dt{margin-top:.4rem}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="p1" viewBox="0 0 100 125">
+    <rect width="100" height="125" fill="#7a4c22"/>
+    <ellipse cx="50" cy="50" rx="50" ry="48" fill="#a9712f"/>
+    <ellipse cx="50" cy="42" rx="28" ry="27" fill="#c08c4c" opacity=".5"/>
+    <path d="M0 125c5-24 20-34 50-34s45 10 50 34z" fill="#3b2410"/>
+    <path d="M50 24c16 0 26 15 26 33v27c-7-8-14-12-26-12s-19 4-26 12V57c0-18 10-33 26-33z" fill="#2a1a0b"/>
+    <ellipse cx="50" cy="57" rx="12" ry="15" fill="#d9a468"/>
+  </symbol>
+  <symbol id="p2" viewBox="0 0 100 125">
+    <rect width="100" height="125" fill="#22331f"/>
+    <ellipse cx="50" cy="50" rx="50" ry="48" fill="#3d5c36"/>
+    <ellipse cx="50" cy="42" rx="28" ry="27" fill="#6d9b6b" opacity=".5"/>
+    <path d="M0 125c5-24 20-34 50-34s45 10 50 34z" fill="#14200f"/>
+    <path d="M50 24c16 0 26 15 26 33v27c-7-8-14-12-26-12s-19 4-26 12V57c0-18 10-33 26-33z" fill="#0f1a0c"/>
+    <ellipse cx="50" cy="57" rx="12" ry="15" fill="#c8a882"/>
+  </symbol>
+  <symbol id="p3" viewBox="0 0 100 125">
+    <rect width="100" height="125" fill="#2e2947"/>
+    <ellipse cx="50" cy="50" rx="50" ry="48" fill="#4b4272"/>
+    <ellipse cx="50" cy="42" rx="28" ry="27" fill="#8d82bd" opacity=".5"/>
+    <path d="M0 125c5-24 20-34 50-34s45 10 50 34z" fill="#191531"/>
+    <path d="M50 24c16 0 26 15 26 33v27c-7-8-14-12-26-12s-19 4-26 12V57c0-18 10-33 26-33z" fill="#120f24"/>
+    <ellipse cx="50" cy="57" rx="12" ry="15" fill="#e0c6b2"/>
+  </symbol>
+  <symbol id="glyph" viewBox="0 0 24 24">
+    <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.4 0-8 2.7-8 6v2h16v-2c0-3.3-3.6-6-8-6Z"/>
+  </symbol>
+  <symbol id="camera" viewBox="0 0 24 24">
+    <path d="M9 3 7.6 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.6L15 3H9Zm3 5.5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/>
+  </symbol>
+</svg>
+
+<div class="appbar">
+  <b>Character sheet manager</b>
+  <span class="sp"></span>
+  <span class="who">kernelgo1@gmail.com</span>
+  <span class="mark"><s>SRD 3.5</s><i>OPEN GAME LICENSE</i></span>
+</div>
+
+<main>
+  <h1>Your characters</h1>
+
+  <form class="newform" onsubmit="event.preventDefault()">
+    <label>
+      <span class="ground-label">New character</span>
+      <input type="text" placeholder="Name">
+    </label>
+    <button class="btn-primary" type="submit">Create</button>
+  </form>
+
+  <ul class="gallery">
+
+    <li>
+      <div class="plate">
+        <div class="face">
+          <svg class="art" viewBox="0 0 100 125"><use href="#p1"/></svg>
+          <button class="shoot" aria-label="Change the portrait of Bramwell Ashgrove">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#camera"/></svg>
+          </button>
+          <p class="lvl">7</p>
+        </div>
+        <div class="label">
+          <button class="open" aria-label="Open Bramwell Ashgrove">
+            <span class="nm">Bramwell Ashgrove</span>
+            <span class="cl">Rogue 4 / Fighter 3</span>
+          </button>
+          <p class="meta">Human · Curse of the Crimson Throne</p>
+          <div class="labelfoot">
+            <span class="when">3 days ago</span>
+            <button class="kill" aria-label="Delete Bramwell Ashgrove">Delete</button>
+          </div>
+          <div class="confirm" hidden>
+            <p>Delete <b>Bramwell Ashgrove</b>? This cannot be undone.</p>
+            <div class="row">
+              <button class="yes">Delete</button>
+              <button class="no">Keep</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </li>
+
+    <!-- No portrait: the monogram case, which is the point of this exploration. -->
+    <li>
+      <div class="plate">
+        <div class="face">
+          <div class="mono"><span aria-hidden="true">Z</span></div>
+          <button class="shoot" aria-label="Add a portrait for Zul'deroth">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#camera"/></svg>
+          </button>
+          <p class="lvl">7</p>
+        </div>
+        <div class="label">
+          <button class="open" aria-label="Open Zul'deroth">
+            <span class="nm">Zul'deroth</span>
+            <span class="cl">druide 4 / mage 2 / Arcane Hiérophante 1</span>
+          </button>
+          <p class="meta">Humain · Les Ombres d'Averoigne</p>
+          <div class="labelfoot">
+            <span class="when">2 hours ago</span>
+            <button class="kill" aria-label="Delete Zul'deroth">Delete</button>
+          </div>
+          <div class="confirm" hidden>
+            <p>Delete <b>Zul'deroth</b>? This cannot be undone.</p>
+            <div class="row">
+              <button class="yes">Delete</button>
+              <button class="no">Keep</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </li>
+
+    <li>
+      <div class="plate">
+        <div class="face">
+          <svg class="art" viewBox="0 0 100 125"><use href="#p3"/></svg>
+          <button class="shoot" aria-label="Change the portrait of Théodwyn of the Verdant March">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#camera"/></svg>
+          </button>
+          <p class="lvl">12</p>
+        </div>
+        <div class="label">
+          <button class="open" aria-label="Open Théodwyn of the Verdant March">
+            <span class="nm">Théodwyn of the Verdant March</span>
+            <span class="cl">Wizard 12</span>
+          </button>
+          <p class="meta">Elf · Rise of the Runelords</p>
+          <div class="labelfoot">
+            <span class="when">3 weeks ago</span>
+            <button class="kill" aria-label="Delete Théodwyn of the Verdant March">Delete</button>
+          </div>
+          <div class="confirm" hidden>
+            <p>Delete <b>Théodwyn of the Verdant March</b>? This cannot be undone.</p>
+            <div class="row">
+              <button class="yes">Delete</button>
+              <button class="no">Keep</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </li>
+
+    <li>
+      <div class="plate">
+        <div class="face">
+          <svg class="art" viewBox="0 0 100 125"><use href="#p2"/></svg>
+          <button class="shoot" aria-label="Change the portrait of Marrow-Grin, Devourer of Pallid Hopes">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#camera"/></svg>
+          </button>
+          <p class="lvl">8</p>
+        </div>
+        <div class="label">
+          <button class="open" aria-label="Open Marrow-Grin, Devourer of Pallid Hopes">
+            <span class="nm">Marrow-Grin, Devourer of Pallid Hopes</span>
+            <span class="cl">Barbarian 5 / Fighter 2 / Rogue 1</span>
+          </button>
+          <p class="meta">Half-orc · Curse of the Crimson Throne</p>
+          <div class="labelfoot">
+            <span class="when">5 months ago</span>
+            <button class="kill" aria-label="Delete Marrow-Grin, Devourer of Pallid Hopes">Delete</button>
+          </div>
+          <div class="confirm" hidden>
+            <p>Delete <b>Marrow-Grin</b>? This cannot be undone.</p>
+            <div class="row">
+              <button class="yes">Delete</button>
+              <button class="no">Keep</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </li>
+
+    <li>
+      <div class="plate">
+        <div class="face">
+          <div class="mono"><span aria-hidden="true">t</span></div>
+          <button class="shoot" aria-label="Add a portrait for test2">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#camera"/></svg>
+          </button>
+          <p class="lvl zero">—</p>
+        </div>
+        <div class="label">
+          <button class="open" aria-label="Open test2">
+            <span class="nm">test2</span>
+            <span class="cl">No class yet</span>
+          </button>
+          <p class="meta none">Nothing filled in</p>
+          <div class="labelfoot">
+            <span class="when">6 minutes ago</span>
+            <button class="kill" aria-label="Delete test2">Delete</button>
+          </div>
+          <div class="confirm" hidden>
+            <p>Delete <b>test2</b>? This cannot be undone.</p>
+            <div class="row">
+              <button class="yes">Delete</button>
+              <button class="no">Keep</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </li>
+
+    <!-- No name: there is no initial to cut, so the plate keeps the default glyph
+         at monogram scale rather than stamping a letter nobody chose. -->
+    <li>
+      <div class="plate unnamed">
+        <div class="face">
+          <div class="mono">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#glyph"/></svg>
+          </div>
+          <button class="shoot" aria-label="Add a portrait for Unnamed character">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#camera"/></svg>
+          </button>
+          <p class="lvl">1</p>
+        </div>
+        <div class="label">
+          <button class="open" aria-label="Open Unnamed character">
+            <span class="nm">Unnamed character</span>
+            <span class="cl">Cleric 1</span>
+          </button>
+          <p class="meta">Dwarf</p>
+          <div class="labelfoot">
+            <span class="when">Just now</span>
+            <button class="kill" aria-label="Delete Unnamed character">Delete</button>
+          </div>
+          <div class="confirm" hidden>
+            <p>Delete this unnamed character? This cannot be undone.</p>
+            <div class="row">
+              <button class="yes">Delete</button>
+              <button class="no">Keep</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </li>
+
+  </ul>
+
+  <div class="notes">
+    <h2>What this exploration is claiming</h2>
+    <dl>
+      <dt>Axis</dt>
+      <dd>The portrait already has its own routes, its own cache-buster and its own upload
+        control. Either it earns the tile or the feature is over-built for 64 pixels.</dd>
+
+      <dt>Signature</dt>
+      <dd>The <b>monogram</b>. A character with no picture gets their initial cut into the page's
+        own woven stripe in MedievalSharp — a mark, not a gap. Six portrait-less characters read
+        as six monograms rather than six unfinished tiles, which is the failure mode of every
+        portrait-led list.</dd>
+
+      <dt>Delete</dt>
+      <dd>A quiet text control in the label's foot; pressing it turns the label strip into the
+        question and its two answers. The plate is never covered, so you can still see whose face
+        you are about to delete. No dialog to dismiss.</dd>
+
+      <dt>Inversion</dt>
+      <dd>The whole plate opens the sheet, via a stretched <code>::after</code> on the name
+        control; the portrait upload moves to a corner pill. Today the largest control uploads a
+        picture and the smallest opens the character. Worth arguing about, not worth leaving as
+        it is.</dd>
+
+      <dt>Costs</dt>
+      <dd>Three dictionary keys (the confirm question and its two answers) in <code>en.ts</code>
+        and <code>fr.ts</code>; a stretched-link pattern that must keep the portrait pill above it
+        and must be disabled while the confirm strip is open; one new glyph for the camera pill —
+        <code>lucide:camera</code> costs nothing in attribution, and only a <code>game-icons</code>
+        glyph would mean an <code>ICONS.txt</code> edit. No API change, no
+        <code>/api/derive</code> call.</dd>
+
+      <dt>Risks</dt>
+      <dd>A 4:5 plate is tall — six characters is already a scroll on a laptop, where the register
+        in E fits fifteen. And the monogram only works while names are distinct; a party of
+        Thalins is six identical plates.</dd>
+
+      <dt>Kept</dt>
+      <dd>Name and class line remain one control carrying <code>characters.open</code>; the
+        portrait control keeps <code>characters.portraitAdd</code> /
+        <code>portraitChange</code> as the whole of its accessible name; <code>--card</code>
+        stays opaque and the stripe appears only where it is the subject.</dd>
+    </dl>
+  </div>
+</main>
+
+<script>
+// The two-step confirm, enough to judge the interaction.
+document.querySelectorAll(".kill").forEach((btn) => {
+  const label = btn.closest(".label");
+  const confirm = label.querySelector(".confirm");
+  const keep = confirm.querySelector(".no");
+  btn.addEventListener("click", () => { confirm.hidden = false; keep.focus(); });
+  keep.addEventListener("click", () => { confirm.hidden = true; btn.focus(); });
+  confirm.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { confirm.hidden = true; btn.focus(); }
+  });
+  confirm.querySelector(".yes").addEventListener("click", () => {
+    btn.closest("li").remove();
+  });
+});
+</script>
+</body>
+</html>

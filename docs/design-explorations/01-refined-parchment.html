@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A — Refined Parchment · HeroForge design exploration</title>
+<style>
+/* ============================================================================
+   EXPLORATION A — "Refined Parchment"  (the control)
+
+   Axis: keeps everything structural about the current sheet — vertical panel
+   stack, two page tabs, parchment on leather — and changes only hierarchy,
+   density and the derived/entered grammar.
+
+   Position on derived vs entered:
+     A field you fill in is a RULED BLANK: a recessed well with a baseline rule.
+     A value the sheet worked out is a STAMP: ink-red, set in the display face,
+     printed on the parchment surface with a ledger's double rule under it.
+     No tinted tile, no box. Ink on paper vs. a space left for your pen.
+
+   Fonts: preview uses macOS faces. Shippable equivalents noted per rule.
+   Texture: CSS only here; the real app uses web/public/leather.jpg.
+   ========================================================================= */
+
+:root{
+  --ink:#2b1f19;
+  --ink-soft:#6d5c50;
+  --rule:#d8c3a8;
+  --rule-soft:#e7d6bf;
+  --parchment:#fdf7ee;
+  --parchment-2:#f6ead6;
+  --vermilion:#8a2b1c;   /* the sheet's one saturated colour */
+  --heading:#5c3a24;
+  --field:#fffdf8;
+  --ok:#2f6b3f;
+
+  /* Real: Cinzel (OFL, @fontsource/cinzel). Letters only — see --figures. */
+  --display:"Hoefler Text","Iowan Old Style",Georgia,serif;
+  /*
+   * A separate face for stamped numbers, and this is not fussiness. The first
+   * build of this page set the stamps in the display face and 10 came out as
+   * "IO": Hoefler Text, Iowan Old Style and Georgia all default to OLD-STYLE
+   * figures, which descend below the baseline and vary in height. On a sheet
+   * that is mostly a column of totals that is illegible. A stamp therefore
+   * uses a slab with lining figures, and asks for them explicitly.
+   * Real: Zilla Slab or Bitter (both OFL, both on @fontsource).
+   */
+  --figures:"Superclarendon","Charter","Bitstream Charter",ui-serif,"Times New Roman",serif;
+  --body:ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  font:15px/1.45 var(--body);
+  color:var(--ink);
+  /* Toned-down hide. The current app's texture is high-contrast gold; here a
+     dark scrim sits over it so panel edges read and nothing competes. */
+  background:
+    radial-gradient(120% 90% at 20% 0%, rgba(0,0,0,.30), rgba(0,0,0,.55)),
+    repeating-linear-gradient(112deg, #7a4218 0 7px, #8a4c1d 7px 15px),
+    #7a4218;
+  background-attachment:fixed;
+}
+input,button,select,textarea{font:inherit;color:inherit}
+
+/* --- app chrome ---------------------------------------------------------- */
+.appbar{
+  display:flex;align-items:center;gap:1rem;
+  padding:.55rem 1.25rem;
+  background:rgba(251,244,234,.95);
+  border-bottom:1px solid var(--rule);
+}
+.appbar .brand{font:600 .95rem/1 var(--body)}
+.appbar .spacer{margin-left:auto}
+.mark{
+  display:flex;align-items:baseline;gap:.5rem;
+  padding-left:1rem;border-left:1px solid var(--rule);
+  font-family:var(--display);color:var(--vermilion);
+}
+.mark b{font:600 1rem/1 var(--display);letter-spacing:.12em}
+.mark span{font-size:.62rem;letter-spacing:.14em;color:var(--ink-soft);text-transform:uppercase}
+
+.page{max-width:1120px;margin:0 auto;padding:1.25rem 1.25rem 4rem}
+
+/* CHANGE 1 — the sheet header is one line, not four stacked bands.
+   In the current build the back link, title, level badge, save state and
+   warnings each take a full row before any character data appears. */
+.sheethead{
+  display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;
+  margin-bottom:.75rem;color:#f5e9d7;
+}
+.sheethead h1{
+  margin:0;font:400 1.5rem/1 var(--display);letter-spacing:.01em;
+  text-shadow:0 1px 2px rgba(0,0,0,.4);
+}
+.lvl{
+  font:600 .7rem/1 var(--body);letter-spacing:.08em;text-transform:uppercase;
+  padding:.35rem .6rem;border-radius:999px;
+  background:rgba(253,247,238,.16);border:1px solid rgba(253,247,238,.35);
+}
+.ghost,.solid{
+  display:inline-flex;align-items:center;gap:.4rem;cursor:pointer;
+  border-radius:.375rem;padding:.35rem .7rem;font-size:.85rem;
+}
+.ghost{background:rgba(253,247,238,.12);border:1px solid rgba(253,247,238,.3);color:#f5e9d7}
+.solid{background:var(--parchment);border:1px solid var(--rule);color:var(--ink)}
+.ghost:hover{background:rgba(253,247,238,.22)}
+
+/* Save state is a quiet inline pill, not a full-width band — it only claims a
+   row when it has something to say. */
+.savestate{display:inline-flex;align-items:center;gap:.4rem;font-size:.78rem;color:#cfe3d3}
+.savestate .dot{width:.5rem;height:.5rem;border-radius:50%;background:#8fc79f}
+
+/* --- tabs ---------------------------------------------------------------- */
+/* The strip is the top edge of the page it opens, not two shapes hovering above
+   it: one parchment bar, no bottom border, and the panel underneath supplies the
+   shared edge. Two detached tabs floating over the leather read as chrome that
+   belongs to the window rather than to the sheet. */
+.tabs{
+  display:flex;gap:0;padding:0 .4rem;position:relative;z-index:2;
+  background:var(--parchment);border:1px solid var(--rule);border-bottom:none;
+  border-radius:.5rem .5rem 0 0;
+}
+.tab{
+  padding:.55rem 1.3rem;cursor:pointer;
+  font:600 .8rem/1 var(--body);letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-soft);background:transparent;
+  border:none;border-bottom:3px solid transparent;
+}
+.tab:hover{color:var(--heading)}
+.tab:focus-visible{outline:2px solid var(--vermilion);outline-offset:-2px}
+.tab[aria-selected=true]{color:var(--heading);border-bottom-color:var(--vermilion)}
+/* The page below shares the strip's edge rather than starting a new box. */
+.tabs + .panel{border-top-left-radius:0;border-top-right-radius:0}
+
+/* --- panels -------------------------------------------------------------- */
+/* CHANGE 2 — panels are typed. A panel where you WORK has a plain header; a
+   panel that mostly REPORTS carries a hairline double rule under its header,
+   the same double rule the derived stamps use. The page stops reading as an
+   undifferentiated stack of identical bars. */
+.panel{
+  background:var(--parchment);
+  border:1px solid var(--rule);
+  border-radius:.5rem;
+  box-shadow:0 2px 10px rgba(30,16,4,.28);
+  margin-bottom:1rem;
+  overflow:hidden;
+}
+.panel > header{
+  display:flex;align-items:center;gap:.55rem;
+  padding:.5rem .9rem;
+  background:linear-gradient(#f3e5cd,#ecdbc0);
+  border-bottom:1px solid var(--rule);
+}
+.panel.reports > header{box-shadow:inset 0 -4px 0 -3px var(--vermilion)}
+.panel > header h2{
+  margin:0;font:400 1.05rem/1 var(--display);letter-spacing:.03em;color:var(--heading);
+}
+.panel > header .meta{margin-left:auto;font-size:.72rem;color:var(--ink-soft)}
+.panel .body{padding:.9rem}
+.glyph{width:1rem;height:1rem;color:var(--vermilion);flex:none}
+.pair{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));margin-bottom:1rem}
+.pair > .panel{margin-bottom:0}
+
+/* --- entered fields: a ruled blank --------------------------------------- */
+/* CHANGE 3 — an input is a well cut into the parchment with a rule at its
+   baseline, the way the paper sheet prints a line to write on. It is visibly
+   a place your hand goes. It never carries ink-red. */
+.f{display:flex;flex-direction:column;gap:.2rem;min-width:0}
+.f > span{
+  font:600 .64rem/1 var(--body);letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-soft);
+}
+.f input,.f textarea{
+  width:100%;height:1.9rem;padding:0 .5rem;
+  background:var(--field);
+  border:1px solid var(--rule-soft);
+  border-bottom:1.5px solid var(--rule);
+  border-radius:.25rem .25rem 0 0;
+  box-shadow:inset 0 1px 2px rgba(90,60,30,.10);
+}
+.f textarea{height:auto;padding:.35rem .5rem;font-size:.85rem;resize:vertical}
+.f input:focus-visible,.f textarea:focus-visible{
+  outline:2px solid var(--vermilion);outline-offset:1px;border-bottom-color:var(--vermilion)
+}
+.f.num input{text-align:right;font-variant-numeric:tabular-nums}
+.row{display:flex;flex-wrap:wrap;gap:.7rem .8rem;align-items:end}
+.row > .f{flex:1 1 9rem}
+.row > .f.w6{flex:0 1 5rem}
+.row > .f.w8{flex:0 1 7rem}
+.row > .f.grow{flex:3 1 16rem}
+
+/* CHANGE 4 — the identity panel is no longer thirteen fields of equal weight.
+   The character's name is set at display size and given the whole first line;
+   everything else is demoted to a compact detail grid. Eyes and Skin should
+   not look as important as the name at the top of the sheet. */
+.identity-name input{
+  height:2.6rem;font:400 1.45rem/1 var(--display);color:var(--heading);
+  border-bottom-width:2px;
+}
+/* `align-items:end` is the French fix, and it is not cosmetic. "Alignment" is
+   one line at this width; "Alignement" and "Points d'expérience" are two.
+   Without it a taller label stretches its cell and that field's input sits a
+   line below the ones beside it, so a row of inputs stops being a row. */
+.detailgrid{
+  display:grid;gap:.55rem .9rem;margin-top:.8rem;align-items:end;
+  grid-template-columns:repeat(auto-fit,minmax(6.5rem,1fr));
+  padding-top:.8rem;border-top:1px dashed var(--rule);
+}
+.detailgrid .f > span{font-size:.6rem}
+.detailgrid .f input{height:1.7rem;font-size:.86rem}
+
+/* --- derived values: a stamp --------------------------------------------- */
+/* THE SIGNATURE. Nothing to type into, no tile, no border — ink laid on the
+   parchment, in the display face, in the sheet's one saturated colour, over a
+   ledger's double rule. The moment you scan the page you know which numbers
+   the application worked out for you, which is the whole product. */
+.stamp{display:flex;flex-direction:column;gap:.1rem;min-width:4.5rem}
+.stamp > span{
+  font:600 .62rem/1 var(--body);letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-soft);
+}
+.stamp output{
+  font:600 1.3rem/1.15 var(--figures);color:var(--vermilion);
+  font-variant-numeric:lining-nums tabular-nums;
+  padding-bottom:.2rem;
+  border-bottom:3px double var(--vermilion);
+}
+.stamp.big output{font-size:2.3rem;line-height:1}
+.stamp.small output{font-size:1.05rem;border-bottom-width:2px}
+.stamps{display:flex;flex-wrap:wrap;gap:1.4rem;align-items:end}
+.stamps + .row{margin-top:.9rem;padding-top:.8rem;border-top:1px dashed var(--rule)}
+
+.note{margin:.7rem 0 0;font-size:.8rem;color:var(--ink-soft)}
+.note b{font-weight:600;color:var(--ink)}
+
+/* --- tables -------------------------------------------------------------- */
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{
+  font:600 .62rem/1 var(--body);letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-soft);text-align:right;padding:0 .4rem .4rem;
+  border-bottom:1px solid var(--rule);
+}
+th.l,td.l{text-align:left}
+td{padding:.18rem .4rem;border-bottom:1px solid var(--rule-soft)}
+tbody tr:last-child td{border-bottom:none}
+td input{
+  width:100%;height:1.7rem;padding:0 .35rem;text-align:right;
+  background:var(--field);border:1px solid var(--rule-soft);
+  border-bottom:1.5px solid var(--rule);border-radius:.2rem .2rem 0 0;
+  font-variant-numeric:tabular-nums;
+}
+td input:focus-visible{outline:2px solid var(--vermilion);outline-offset:1px}
+/* Derived cells in a table get the stamp's ink and rule, at table scale. */
+td.derived output{
+  display:block;text-align:right;font:600 1rem/1.7 var(--figures);
+  color:var(--vermilion);font-variant-numeric:lining-nums tabular-nums;
+}
+.abilname{font:400 1rem/1 var(--display);color:var(--heading)}
+
+/* --- skills -------------------------------------------------------------- */
+/* CHANGE 5 — the densest thing on the sheet gets the most structure:
+   the derived TOTAL sits in its own tinted gutter, hard against the name, so
+   the eye runs down one column of answers. Ranks and misc — the two things you
+   type — are pushed right, out of the reading path. */
+.skills{font-size:.9rem}
+.skills col.total{width:4.2rem}
+.skills td.total{background:rgba(239,219,196,.5);border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
+.skills th.total{background:rgba(239,219,196,.5)}
+.skills td.total output{font-size:1.05rem}
+.skills td.name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0;width:38%}
+.skills .abil{font-size:.72rem;color:var(--ink-soft);letter-spacing:.05em}
+.skills .flag{color:var(--vermilion);font-weight:600;cursor:help;text-decoration:none}
+/* The class-skill mark is a filled lozenge, not a checkbox: forty checkboxes
+   down the left edge is forty pieces of chrome for one bit of information. */
+.cls{
+  appearance:none;width:.85rem;height:.85rem;border:1px solid var(--rule);
+  border-radius:.15rem;background:var(--field);cursor:pointer;vertical-align:-1px;
+}
+.cls:checked{background:var(--vermilion);border-color:var(--vermilion);
+  box-shadow:inset 0 0 0 2px var(--parchment)}
+.cls:focus-visible{outline:2px solid var(--vermilion);outline-offset:2px}
+.skills tbody tr:hover td{background:rgba(239,219,196,.28)}
+.skills tbody tr:hover td.total{background:rgba(239,219,196,.7)}
+.blank output{color:transparent}
+
+/* --- warnings ------------------------------------------------------------ */
+.warn{
+  background:var(--parchment);border:1px solid var(--rule);
+  border-left:4px solid var(--vermilion);border-radius:.375rem;
+  padding:.6rem .9rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(30,16,4,.25);
+}
+.warn h3{
+  margin:0 0 .3rem;font:600 .64rem/1 var(--body);letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-soft);
+}
+.warn ul{margin:0;padding-left:1.1rem;font-size:.88rem}
+.warn p{margin:.35rem 0 0;font-size:.78rem;color:var(--ink-soft)}
+
+.addrow{
+  margin-top:.7rem;background:transparent;border:1px dashed var(--rule);
+  border-radius:.3rem;padding:.35rem .8rem;font-size:.82rem;color:var(--ink-soft);cursor:pointer;
+}
+.addrow:hover{border-color:var(--vermilion);color:var(--vermilion)}
+
+/* --- exploration annotations (not part of the design) -------------------- */
+.annot{
+  max-width:1120px;margin:0 auto 1rem;padding:.7rem 1rem;
+  background:rgba(15,10,5,.72);border-left:3px solid #d8a75f;color:#f1e2c8;
+  font:.82rem/1.5 var(--body);border-radius:0 .3rem .3rem 0;
+}
+.annot b{color:#f4c97e}
+
+@media (max-width:720px){
+  .row > .f{flex:1 1 100%}
+  .skills td.name{max-width:none;width:auto}
+  .stamps{gap:1rem}
+}
+@media (prefers-reduced-motion:no-preference){
+  .panel{transition:box-shadow .2s}
+}
+</style>
+</head>
+<body>
+
+<nav class="appbar">
+  <span class="brand">Character sheet manager</span>
+  <span class="spacer"></span>
+  <span style="font-size:.85rem;color:var(--ink-soft)">ana@example.com</span>
+  <button class="solid">Sign out</button>
+  <span class="mark"><b>SRD 3.5</b><span>Open Game License</span></span>
+</nav>
+
+<p class="annot"><b>Exploration A — Refined Parchment.</b> Same structure as today
+(panel stack, two page tabs, parchment on leather). What changes: the header collapses to one
+line, the identity panel gets a hierarchy, panels that report are marked apart from panels
+where you work, and — the signature — <b>a derived value is ink stamped on the page, an entered
+value is a ruled blank</b>. Adopting this is a CSS-and-markup change; no data flow moves.</p>
+
+<div class="page">
+
+  <div class="sheethead">
+    <button class="ghost">← All characters</button>
+    <h1>Sera Valhen</h1>
+    <span class="lvl">Level 7 · Fighter 4 / Rogue 3</span>
+    <span class="savestate"><span class="dot"></span>All changes saved</span>
+    <span style="margin-left:auto"></span>
+    <button class="solid">Export PDF</button>
+  </div>
+
+  <div class="warn">
+    <h3>Worth a look</h3>
+    <ul>
+      <li>Dexterity bonus +2 exceeds full plate's maximum of +1; +1 applied to armour class.</li>
+      <li>Listen holds 11 ranks; the maximum for a class skill at level 7 is 10.</li>
+    </ul>
+    <p>Reported, not refused — house rules and homebrew are normal play.</p>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true">Page 1</button>
+    <button class="tab" role="tab" aria-selected="false">Page 2</button>
+  </div>
+
+  <!-- IDENTITY --------------------------------------------------------- -->
+  <section class="panel">
+    <header>
+      <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 12c5 0 9 2.5 9 5.5V22H3v-2.5C3 16.5 7 14 12 14Z"/></svg>
+      <h2>Character</h2>
+    </header>
+    <div class="body">
+      <label class="f identity-name">
+        <span>Character name</span>
+        <input value="Sera Valhen">
+      </label>
+      <div class="detailgrid">
+        <label class="f"><span>Player</span><input value="Ana"></label>
+        <label class="f"><span>Race</span><input value="Human"></label>
+        <label class="f"><span>Alignment</span><input value="Neutral good"></label>
+        <label class="f"><span>Deity</span><input value="Kord"></label>
+        <label class="f"><span>Size</span><input value="Medium"></label>
+        <label class="f"><span>Age</span><input value="27"></label>
+        <label class="f"><span>Gender</span><input value="Female"></label>
+        <label class="f"><span>Height</span><input value="5 ft. 7 in."></label>
+        <label class="f"><span>Weight</span><input value="138 lb."></label>
+        <label class="f"><span>Eyes</span><input value="Grey"></label>
+        <label class="f"><span>Hair</span><input value="Black"></label>
+        <label class="f"><span>Skin</span><input value="Tan"></label>
+      </div>
+    </div>
+  </section>
+
+  <div class="pair">
+    <!-- ABILITIES ------------------------------------------------------ -->
+    <section class="panel">
+      <header>
+        <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 10h3V7h2v3h6V7h2v3h3v4h-3v3h-2v-3H9v3H7v-3H4z"/></svg>
+        <h2>Abilities</h2>
+      </header>
+      <div class="body">
+        <table>
+          <thead><tr>
+            <th class="l">Ability</th><th>Score</th><th>Modifier</th><th>Temp. score</th><th>Temp. mod.</th>
+          </tr></thead>
+          <tbody>
+            <tr><td class="l abilname">STR</td><td><input value="16"></td><td class="derived"><output aria-label="Strength modifier">+3</output></td><td><input value=""></td><td class="derived blank"><output aria-label="Strength temporary modifier">+0</output></td></tr>
+            <tr><td class="l abilname">DEX</td><td><input value="14"></td><td class="derived"><output>+2</output></td><td><input value=""></td><td class="derived blank"><output>+0</output></td></tr>
+            <tr><td class="l abilname">CON</td><td><input value="14"></td><td class="derived"><output>+2</output></td><td><input value="16"></td><td class="derived"><output>+3</output></td></tr>
+            <tr><td class="l abilname">INT</td><td><input value="12"></td><td class="derived"><output>+1</output></td><td><input value=""></td><td class="derived blank"><output>+0</output></td></tr>
+            <tr><td class="l abilname">WIS</td><td><input value="10"></td><td class="derived"><output>+0</output></td><td><input value=""></td><td class="derived blank"><output>+0</output></td></tr>
+            <tr><td class="l abilname">CHA</td><td><input value="8"></td><td class="derived"><output>−1</output></td><td><input value=""></td><td class="derived blank"><output>+0</output></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CLASSES -------------------------------------------------------- -->
+    <section class="panel">
+      <header>
+        <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6Z"/></svg>
+        <h2>Class and level</h2>
+        <span class="meta">Sets every rank maximum</span>
+      </header>
+      <div class="body">
+        <div class="row" style="margin-bottom:.6rem">
+          <label class="f grow"><span>Class</span><input value="Fighter"></label>
+          <label class="f num w6"><span>Level</span><input value="4"></label>
+        </div>
+        <div class="row">
+          <label class="f grow"><span>Class</span><input value="Rogue"></label>
+          <label class="f num w6"><span>Level</span><input value="3"></label>
+        </div>
+        <button class="addrow">Add a class</button>
+        <div class="stamps" style="margin-top:1rem;padding-top:.8rem;border-top:1px dashed var(--rule)">
+          <div class="stamp"><span>Character level</span><output aria-label="Character level">7</output></div>
+          <div class="stamp"><span>Max ranks, class</span><output>10</output></div>
+          <div class="stamp"><span>Max ranks, cross-class</span><output>5</output></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- HIT POINTS ------------------------------------------------------- -->
+  <section class="panel">
+    <header>
+      <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 21S3 14.5 3 8.8A4.8 4.8 0 0 1 12 6a4.8 4.8 0 0 1 9 2.8C21 14.5 12 21 12 21Z"/></svg>
+      <h2>Hit points</h2>
+    </header>
+    <div class="body">
+      <div class="row">
+        <label class="f num w8"><span>Total</span><input value="52"></label>
+        <label class="f num w8"><span>Current</span><input value="44"></label>
+        <label class="f num w8"><span>Nonlethal</span><input value="0"></label>
+        <label class="f num w8"><span>Damage reduction</span><input value="0"></label>
+        <label class="f num w8"><span>Speed</span><input value="20"></label>
+        <label class="f num w8"><span>Spell resistance</span><input value="0"></label>
+      </div>
+    </div>
+  </section>
+
+  <div class="pair">
+    <!-- ARMOUR CLASS --------------------------------------------------- -->
+    <section class="panel reports">
+      <header>
+        <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v7c0 5 3.4 9 8 10 4.6-1 8-5 8-10V5Z"/></svg>
+        <h2>Armour class</h2>
+      </header>
+      <div class="body">
+        <div class="stamps">
+          <div class="stamp big"><span>Armour class</span><output aria-label="Armour class total">22</output></div>
+          <div class="stamp"><span>Touch</span><output aria-label="Touch armour class">12</output></div>
+          <div class="stamp"><span>Flat-footed</span><output aria-label="Flat-footed armour class">21</output></div>
+        </div>
+        <p class="note">10 + armour <b>8</b> + shield <b>2</b> + Dex <b>1</b> + natural <b>0</b> + deflection <b>1</b> + size <b>0</b> + misc <b>0</b></p>
+        <div class="row">
+          <label class="f num w6"><span>Natural</span><input value="0"></label>
+          <label class="f num w6"><span>Deflection</span><input value="1"></label>
+          <label class="f num w6"><span>Size</span><input value="0"></label>
+          <label class="f num w6"><span>Misc</span><input value="0"></label>
+        </div>
+      </div>
+    </section>
+
+    <!-- INITIATIVE & GRAPPLE ------------------------------------------- -->
+    <section class="panel reports">
+      <header>
+        <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+        <h2>Initiative and grapple</h2>
+      </header>
+      <div class="body">
+        <div class="stamps">
+          <div class="stamp big"><span>Initiative</span><output aria-label="Initiative">+2</output></div>
+          <div class="stamp big"><span>Grapple</span><output aria-label="Grapple modifier">+9</output></div>
+        </div>
+        <p class="note">Grapple is base attack <b>+6</b> + Strength <b>+3</b> + size <b>0</b>. A Small
+        creature takes −4 here and +1 to armour class; they are not the same number.</p>
+        <div class="row">
+          <label class="f num w8"><span>Base attack bonus</span><input value="+6/+1"></label>
+          <label class="f num w6"><span>Init. misc</span><input value="0"></label>
+          <label class="f num w6"><span>Grapple misc</span><input value="0"></label>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- SAVING THROWS ---------------------------------------------------- -->
+  <section class="panel reports">
+    <header>
+      <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3l7 3v6c0 4.4-3 8.3-7 9-4-.7-7-4.6-7-9V6Zm-1 12 6-6-1.4-1.4L11 12.2 8.4 9.6 7 11Z"/></svg>
+      <h2>Saving throws</h2>
+    </header>
+    <div class="body">
+      <table>
+        <thead><tr>
+          <th class="l">Save</th><th>Total</th><th>Base</th><th>Ability</th><th>Magic</th><th>Misc</th><th>Temp.</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="l abilname">Fortitude <span class="skills abil">CON</span></td>
+            <td class="derived"><output aria-label="Fortitude total">+7</output></td>
+            <td><input value="5"></td><td class="derived"><output>+2</output></td>
+            <td><input value="0"></td><td><input value="0"></td><td><input value="0"></td></tr>
+          <tr><td class="l abilname">Reflex <span class="skills abil">DEX</span></td>
+            <td class="derived"><output aria-label="Reflex total">+6</output></td>
+            <td><input value="4"></td><td class="derived"><output>+2</output></td>
+            <td><input value="0"></td><td><input value="0"></td><td><input value="0"></td></tr>
+          <tr><td class="l abilname">Will <span class="skills abil">WIS</span></td>
+            <td class="derived"><output aria-label="Will total">+2</output></td>
+            <td><input value="2"></td><td class="derived"><output>+0</output></td>
+            <td><input value="0"></td><td><input value="0"></td><td><input value="0"></td></tr>
+        </tbody>
+      </table>
+      <p class="note">Base saves are yours to enter. Deriving them needs class progression tables,
+      which are phase 2.</p>
+    </div>
+  </section>
+
+  <!-- SKILLS ----------------------------------------------------------- -->
+  <section class="panel reports">
+    <header>
+      <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 4h13l3 3v13H4Zm2 3v2h9V7Zm0 4v2h9v-2Zm0 4v2h6v-2Z"/></svg>
+      <h2>Skills</h2>
+      <span class="meta">87 of 10 max per class skill · 5 cross-class</span>
+    </header>
+    <div class="body">
+      <table class="skills">
+        <colgroup><col style="width:1.9rem"><col><col style="width:3rem"><col class="total"><col style="width:4rem"><col style="width:4rem"></colgroup>
+        <thead><tr>
+          <th class="l" title="Class skill">Cls</th>
+          <th class="l">Skill</th>
+          <th class="l">Key</th>
+          <th class="total">Total</th>
+          <th>Ranks</th>
+          <th>Misc</th>
+        </tr></thead>
+        <tbody>
+          <tr><td><input class="cls" type="checkbox" aria-label="Balance is a class skill" checked></td>
+            <td class="l name">Balance <abbr class="flag" title="Armour check penalty applies">*</abbr></td>
+            <td class="l abil">DEX</td>
+            <td class="total derived"><output aria-label="Balance total">+3</output></td>
+            <td><input value="6"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox" checked></td>
+            <td class="l name">Bluff</td><td class="l abil">CHA</td>
+            <td class="total derived"><output>+4</output></td>
+            <td><input value="5"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox" checked></td>
+            <td class="l name">Climb <abbr class="flag" title="Armour check penalty applies">*</abbr></td>
+            <td class="l abil">STR</td>
+            <td class="total derived"><output>+2</output></td>
+            <td><input value="4"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox"></td>
+            <td class="l name">Diplomacy</td><td class="l abil">CHA</td>
+            <td class="total derived"><output>+1</output></td>
+            <td><input value="2"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox" checked></td>
+            <td class="l name">Disable Device <abbr class="flag" title="Trained only">T</abbr></td>
+            <td class="l abil">INT</td>
+            <td class="total derived"><output>+9</output></td>
+            <td><input value="8"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox" checked></td>
+            <td class="l name">Hide <abbr class="flag" title="Armour check penalty applies">*</abbr></td>
+            <td class="l abil">DEX</td>
+            <td class="total derived"><output>+3</output></td>
+            <td><input value="6"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox" checked></td>
+            <td class="l name">Listen</td><td class="l abil">WIS</td>
+            <td class="total derived"><output>+11</output></td>
+            <td><input value="11"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox" checked></td>
+            <td class="l name">Move Silently <abbr class="flag" title="Armour check penalty applies">*</abbr></td>
+            <td class="l abil">DEX</td>
+            <td class="total derived"><output>+3</output></td>
+            <td><input value="6"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox" checked></td>
+            <td class="l name">Open Lock <abbr class="flag" title="Trained only">T</abbr></td>
+            <td class="l abil">DEX</td>
+            <td class="total derived"><output>+10</output></td>
+            <td><input value="8"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox"></td>
+            <td class="l name">Ride</td><td class="l abil">DEX</td>
+            <td class="total derived blank"><output aria-label="Ride total">+2</output></td>
+            <td><input value="0"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox" checked></td>
+            <td class="l name">Search</td><td class="l abil">INT</td>
+            <td class="total derived"><output>+7</output></td>
+            <td><input value="6"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox" checked></td>
+            <td class="l name">Sleight of Hand <abbr class="flag" title="Armour check penalty applies">*</abbr><abbr class="flag" title="Trained only">T</abbr></td>
+            <td class="l abil">DEX</td>
+            <td class="total derived"><output>+2</output></td>
+            <td><input value="5"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox" checked></td>
+            <td class="l name">Spot</td><td class="l abil">WIS</td>
+            <td class="total derived"><output>+10</output></td>
+            <td><input value="10"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox" checked></td>
+            <td class="l name">Swim <abbr class="flag" title="Armour check penalty applies twice">**</abbr></td>
+            <td class="l abil">STR</td>
+            <td class="total derived"><output aria-label="Swim total">−5</output></td>
+            <td><input value="2"></td><td><input value="0"></td></tr>
+
+          <tr><td><input class="cls" type="checkbox" checked></td>
+            <td class="l name">Tumble <abbr class="flag" title="Armour check penalty applies">*</abbr><abbr class="flag" title="Trained only">T</abbr></td>
+            <td class="l abil">DEX</td>
+            <td class="total derived"><output>+3</output></td>
+            <td><input value="6"></td><td><input value="0"></td></tr>
+        </tbody>
+      </table>
+      <button class="addrow">Add a skill</button>
+      <p class="note">The full list is about forty rows, plus repeats for Craft, Knowledge, Perform
+      and Profession. A total is shown only where the skill has a rank —
+      <abbr class="flag" title="Armour check penalty applies">*</abbr> armour check penalty,
+      <abbr class="flag" title="Armour check penalty applies twice">**</abbr> twice,
+      <abbr class="flag" title="Trained only">T</abbr> trained only.</p>
+    </div>
+  </section>
+
+  <p class="annot" style="margin-top:1.5rem"><b>What it costs.</b> Nothing structural. The panel
+  components, the tabs, the two-page split and the draft state all stay. The work is
+  <code>styles.css</code> tokens, a <code>Derived</code> that renders a stamp instead of a tinted
+  tile, a <code>BannerPanel</code> replaced by an ordinary panel with a display-size name field, and
+  a <code>Panel</code> variant for reporting sections. <b>What it does not answer:</b> whether the
+  derived combat numbers should still scroll off the top while you work in the skills table.</p>
+
+</div>
+</body>
+</html>

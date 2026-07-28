@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>G — Slate Nameplate · HeroForge character-list exploration</title>
+<style>
+/* ============================================================================
+   EXPLORATION G — "Slate Nameplate"
+
+   AXIS: material. The sheet spends a whole design rule on telling derived
+   values from typed ones by PLACE — the dark rail beside the parchment column.
+   The character list is the first screen anyone sees and it teaches none of it.
+
+   This exploration builds the tile out of both materials. The head band is the
+   rail's oiled slate and carries the one figure on this screen the application
+   worked out for you: the character level, which is every class level added up.
+   The body is parchment and carries what you typed: the classes themselves, the
+   campaign, the race.
+
+   THE SIGNATURE, and the reason to build it rather than just repaint the card:
+   the class levels are set as a LEDGER — one row per class, the figure
+   right-aligned in a column of fixed width — and that column is the same column
+   the gold total sits in up in the slate. The 4 and the 3 line up directly
+   underneath the 7. The tile shows its own arithmetic. On the one screen that
+   deliberately never calls `/api/derive`, that is the product introducing
+   itself with a number it is allowed to print.
+
+   It also fixes the current card's worst text: "druide 4 / mage 2 / Arcane
+   Hiérophante 1" is a string that wraps into soup at any card width. Three rows
+   never wrap.
+
+   POSITION ON DELETE: demotion, not concealment and not a confirm step. Today
+   it is an outline button — a frame, a fill and a border, sitting at the same
+   weight as the thing you actually came for. Here it is quiet text at the end
+   of the foot that turns destructive-red on hover and focus. It is exactly as
+   reachable and a great deal less loud. (F's two-step confirm is separable and
+   can be adopted on top of this.)
+
+   EVERY FIELD HERE IS ONE `CharacterSummary` ALREADY CARRIES: name, race,
+   campaign, class_levels, updated_at, portrait_updated_at. An earlier draft of
+   this page put an alignment under the name, which the list endpoint does not
+   send — the sort of thing a mockup gets adopted along with.
+
+   COST: medium. New markup, a second surface inside a `Card`, and the rail
+   tokens reaching a component outside `DerivedRail` for the first time.
+
+   Fonts are the real bundled files, read out of `web/node_modules`.
+   ========================================================================= */
+
+@font-face{
+  font-family:"MedievalSharp";font-style:normal;font-weight:400;font-display:swap;
+  src:url("../../web/node_modules/@fontsource/medievalsharp/files/medievalsharp-latin-400-normal.woff2") format("woff2");
+}
+@font-face{
+  font-family:"Cinzel";font-style:normal;font-weight:700;font-display:swap;
+  src:url("../../web/node_modules/@fontsource/cinzel/files/cinzel-latin-700-normal.woff2") format("woff2");
+}
+
+:root{
+  /* Restated from web/src/styles.css. Nothing here is a new colour. */
+  --ink:#2b1f19;
+  --ink-soft:#6d5c50;
+  --rule:#d8c3a8;
+  --card:#fbf4e9;
+  --secondary:#f1e2c8;
+  --muted:#efdbc4;
+  --vermilion:#8a2b1c;
+  --heading:#5c3a24;
+  --field:#ffffff;
+  --destructive:#9b2c20;
+  --danger-soft:#fbeae8;
+  --on-ground:#f0e2cc;
+  --on-ground-muted:#c9b393;
+  --rail:#241a13;
+  --rail-2:#2f231a;
+  --rail-line:#463427;
+  --rail-fg:#f0e2cc;
+  --rail-muted:#b09b81;
+  --rail-accent:#e0b273;
+  --radius:.375rem;
+
+  /* The one measurement the whole exploration hangs on: the figures column. */
+  --fig:2.75rem;
+
+  --body:ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --display:"MedievalSharp","Hoefler Text",Georgia,serif;
+  --emblem:"Cinzel",Georgia,serif;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;font:15px/1.45 var(--body);color:var(--ink);
+  background-color:#78421a;
+  background-image:
+    radial-gradient(140% 100% at 70% 0%, rgba(0,0,0,.22), rgba(0,0,0,.5)),
+    repeating-linear-gradient(100deg,#78421a 0 9px,#8b4f21 9px 18px);
+  background-attachment:fixed;
+}
+input,button{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--rail-accent);outline-offset:2px;border-radius:2px}
+
+/* --- chrome -------------------------------------------------------------- */
+.appbar{display:flex;align-items:center;gap:1rem;padding:.55rem 1.25rem;
+  background:rgba(251,244,234,.95);border-bottom:1px solid var(--rule)}
+.appbar b{font-weight:600;font-size:.95rem}
+.appbar .sp{margin-left:auto}
+.appbar .acct{color:var(--ink-soft);font-size:.85rem}
+.mark{display:flex;flex-direction:column;padding-left:1rem;border-left:1px solid var(--rule);
+  font-family:var(--emblem);color:var(--vermilion);line-height:1.05}
+.mark s{text-decoration:none;font-weight:700;letter-spacing:.08em;font-size:.95rem}
+.mark i{font-style:normal;font-size:.56rem;letter-spacing:.12em;color:var(--ink-soft)}
+
+main{max-width:72rem;margin:0 auto;padding:2rem 1.25rem 5rem}
+h1{margin:0;font:600 1.25rem/1.2 var(--body);letter-spacing:-.01em;color:var(--on-ground)}
+
+.newform{display:flex;align-items:flex-end;gap:.75rem;margin:1rem 0 1.75rem}
+.newform label{display:flex;flex-direction:column;gap:.25rem;flex:1;max-width:16rem}
+.ground-label{font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.13em;
+  color:var(--on-ground-muted)}
+.newform input{background:var(--field);border:1px solid var(--rule);border-radius:var(--radius);
+  padding:.35rem .55rem;height:2rem;color:var(--ink)}
+.btn-primary{background:var(--vermilion);color:#fdf7ee;border:0;border-radius:var(--radius);
+  padding:0 .85rem;height:2rem;font-size:.875rem;font-weight:500}
+
+/* --- the nameplates ------------------------------------------------------ */
+.plates{list-style:none;margin:0;padding:0;display:grid;gap:1.15rem;
+  grid-template-columns:repeat(auto-fill,minmax(17.5rem,1fr))}
+.plates li{display:flex}
+
+.plate{
+  display:flex;flex-direction:column;width:100%;
+  border:1px solid var(--rule);border-radius:var(--radius);overflow:hidden;
+  background:var(--card);
+  transition:box-shadow .15s ease,border-color .15s ease;
+}
+.plate:hover,.plate:focus-within{border-color:var(--heading);box-shadow:0 6px 20px rgba(0,0,0,.25)}
+
+/* --- the slate band: what the application worked out --------------------- */
+.band{
+  display:grid;grid-template-columns:2.75rem minmax(0,1fr) var(--fig);
+  align-items:center;gap:.65rem;
+  padding:.7rem .8rem;
+  background:linear-gradient(180deg,var(--rail-2),var(--rail));
+  border-bottom:1px solid var(--rail-line);
+  color:var(--rail-fg);
+}
+
+.tok{
+  width:2.75rem;height:2.75rem;border-radius:calc(var(--radius) - 1px);overflow:hidden;padding:0;
+  border:1px solid var(--rail-line);background:#1a120c;display:grid;place-items:center;
+}
+.tok svg.art{width:100%;height:100%;display:block}
+.tok svg.glyph{width:1.3rem;height:1.3rem;fill:var(--rail-muted)}
+.tok:hover{border-color:var(--rail-accent)}
+
+/*
+ * The name is lettered, not set. `font-heading` is reserved in this application
+ * for the one thing that is a name rather than a category, and on this screen
+ * every tile is exactly that.
+ */
+.open{background:none;border:0;padding:0;text-align:left;min-width:0;display:block;width:100%}
+.open .nm{
+  display:block;font-family:var(--display);font-size:1.15rem;line-height:1.2;color:var(--rail-fg);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.open .race{
+  display:block;font-size:.72rem;color:var(--rail-muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.open .race.none{font-style:italic}
+.open:hover .nm{color:var(--rail-accent)}
+.unnamed .nm{font-family:var(--body);font-style:italic;font-size:.95rem;color:var(--rail-muted)}
+
+/*
+ * The total. Gold, because the rail spends its accent on the few things that
+ * mean something by being gold — and on this screen exactly one figure was
+ * worked out rather than typed.
+ */
+.total{text-align:right;margin:0}
+.total .cap{display:block;font-size:.55rem;font-weight:600;text-transform:uppercase;
+  letter-spacing:.13em;color:var(--rail-muted)}
+.total .n{
+  display:block;font-size:1.6rem;line-height:1.05;font-weight:600;color:var(--rail-accent);
+  font-variant-numeric:tabular-nums lining-nums;
+}
+.total .n.zero{color:var(--rail-muted);font-weight:400;font-size:1.2rem}
+
+/* --- the parchment ledger: what you typed -------------------------------- */
+.ledger{margin:0;padding:.5rem .8rem .55rem;list-style:none}
+.ledger li{
+  display:grid;grid-template-columns:minmax(0,1fr) var(--fig);align-items:baseline;gap:.65rem;
+  padding:.16rem 0;
+}
+.ledger .cls{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.9rem}
+/*
+ * The figures column. Same width as the slate's `.total` above it and with the
+ * same right padding on the container, so a class level sits directly under the
+ * gold total it is part of. This is the whole exploration; change `--fig` in
+ * one place or it stops being true.
+ */
+.ledger .n{
+  text-align:right;font-variant-numeric:tabular-nums lining-nums;
+  font-size:.9rem;font-weight:600;color:var(--heading);
+}
+
+/* No classes yet: an invitation, not a blank. */
+.noclass{margin:0;padding:.7rem .8rem .55rem;font-size:.85rem;color:var(--ink-soft)}
+.noclass b{display:block;font-weight:600;color:var(--ink);font-size:.9rem}
+
+/*
+ * The foot: where it is played and when it was last touched on one muted line,
+ * with Delete at the far end. Putting Delete here rather than under the ledger
+ * matters more than it sounds — a tile with one class has an empty half, and a
+ * lone control floating in the middle of it reads as a tile that failed to
+ * finish loading.
+ */
+.foot{
+  display:flex;align-items:center;gap:.5rem;margin-top:auto;
+  padding:.4rem .5rem .45rem .8rem;border-top:1px solid var(--rule);
+}
+.foot .where{font-size:.75rem;color:var(--ink-soft);min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-variant-numeric:tabular-nums lining-nums}
+.foot .where.none{font-style:italic;color:#a08e80}
+
+/*
+ * Delete. Quiet text, not an outline button, and it colours only on hover and
+ * focus. Exactly as reachable as it is today and a great deal less loud.
+ */
+.kill{
+  margin-left:auto;background:none;border:0;padding:.15rem .35rem;border-radius:3px;
+  font-size:.75rem;color:#a08e80;white-space:nowrap;
+}
+.kill:hover,.kill:focus-visible{color:var(--destructive);background:var(--danger-soft)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* --- the notes panel ----------------------------------------------------- */
+.notes{margin-top:2rem;background:var(--card);border:1px solid var(--rule);
+  border-radius:var(--radius);padding:1rem 1.15rem}
+.notes h2{margin:0 0 .6rem;font-size:.72rem;font-weight:600;text-transform:uppercase;
+  letter-spacing:.16em;color:var(--heading)}
+.notes dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:.4rem .9rem;font-size:.86rem}
+.notes dt{color:var(--ink-soft);white-space:nowrap}
+.notes dd{margin:0}
+.notes code{font:.9em ui-monospace,Menlo,monospace;background:rgba(0,0,0,.06);
+  padding:.1em .3em;border-radius:3px}
+@media (max-width:34rem){.notes dl{grid-template-columns:1fr}.notes dt{margin-top:.4rem}}
+</style>
+</head>
+<body>
+
+<!-- Faux portraits. In the app these are uploaded JPEGs; here they are inline SVG
+     so the file stays self-contained and there is no fourth licence to carry. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="p1" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#7a4c22"/>
+    <ellipse cx="50" cy="40" rx="46" ry="40" fill="#a9712f"/>
+    <ellipse cx="50" cy="34" rx="26" ry="24" fill="#c08c4c" opacity=".5"/>
+    <path d="M2 100c4-19 18-27 48-27s44 8 48 27z" fill="#3b2410"/>
+    <path d="M50 20c15 0 24 13 24 30v22c-6-7-13-10-24-10s-18 3-24 10V50c0-17 9-30 24-30z" fill="#2a1a0b"/>
+    <ellipse cx="50" cy="50" rx="11" ry="14" fill="#d9a468"/>
+  </symbol>
+  <symbol id="p2" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#22331f"/>
+    <ellipse cx="50" cy="40" rx="46" ry="40" fill="#3d5c36"/>
+    <ellipse cx="50" cy="34" rx="26" ry="24" fill="#6d9b6b" opacity=".5"/>
+    <path d="M2 100c4-19 18-27 48-27s44 8 48 27z" fill="#14200f"/>
+    <path d="M50 20c15 0 24 13 24 30v22c-6-7-13-10-24-10s-18 3-24 10V50c0-17 9-30 24-30z" fill="#0f1a0c"/>
+    <ellipse cx="50" cy="50" rx="11" ry="14" fill="#c8a882"/>
+  </symbol>
+  <symbol id="p3" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#2e2947"/>
+    <ellipse cx="50" cy="40" rx="46" ry="40" fill="#4b4272"/>
+    <ellipse cx="50" cy="34" rx="26" ry="24" fill="#8d82bd" opacity=".5"/>
+    <path d="M2 100c4-19 18-27 48-27s44 8 48 27z" fill="#191531"/>
+    <path d="M50 20c15 0 24 13 24 30v22c-6-7-13-10-24-10s-18 3-24 10V50c0-17 9-30 24-30z" fill="#120f24"/>
+    <ellipse cx="50" cy="50" rx="11" ry="14" fill="#e0c6b2"/>
+  </symbol>
+  <symbol id="glyph" viewBox="0 0 24 24">
+    <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.4 0-8 2.7-8 6v2h16v-2c0-3.3-3.6-6-8-6Z"/>
+  </symbol>
+</svg>
+
+<div class="appbar">
+  <b>Character sheet manager</b>
+  <span class="sp"></span>
+  <span class="acct">kernelgo1@gmail.com</span>
+  <span class="mark"><s>SRD 3.5</s><i>OPEN GAME LICENSE</i></span>
+</div>
+
+<main>
+  <h1>Your characters</h1>
+
+  <form class="newform" onsubmit="event.preventDefault()">
+    <label>
+      <span class="ground-label">New character</span>
+      <input type="text" placeholder="Name">
+    </label>
+    <button class="btn-primary" type="submit">Create</button>
+  </form>
+
+  <ul class="plates">
+
+    <li>
+      <div class="plate">
+        <div class="band">
+          <button class="tok" aria-label="Change the portrait of Bramwell Ashgrove">
+            <svg class="art" viewBox="0 0 100 100"><use href="#p1"/></svg>
+          </button>
+          <button class="open" aria-label="Open Bramwell Ashgrove">
+            <span class="nm">Bramwell Ashgrove</span>
+            <span class="race">Human</span>
+          </button>
+          <p class="total"><span class="cap">Level</span><span class="n">7</span></p>
+        </div>
+        <ul class="ledger">
+          <li><span class="cls">Rogue</span><span class="n">4</span></li>
+          <li><span class="cls">Fighter</span><span class="n">3</span></li>
+        </ul>
+        <div class="foot">
+          <span class="where">Curse of the Crimson Throne · 3 days ago</span>
+          <button class="kill" aria-label="Delete Bramwell Ashgrove">Delete</button>
+        </div>
+      </div>
+    </li>
+
+    <!-- Three classes. The current card joins these into one string that wraps
+         into soup; three ledger rows never wrap. -->
+    <li>
+      <div class="plate">
+        <div class="band">
+          <button class="tok" aria-label="Add a portrait for Zul'deroth">
+            <svg class="glyph" viewBox="0 0 24 24"><use href="#glyph"/></svg>
+          </button>
+          <button class="open" aria-label="Open Zul'deroth">
+            <span class="nm">Zul'deroth</span>
+            <span class="race">Humain</span>
+          </button>
+          <p class="total"><span class="cap">Level</span><span class="n">7</span></p>
+        </div>
+        <ul class="ledger">
+          <li><span class="cls">druide</span><span class="n">4</span></li>
+          <li><span class="cls">mage</span><span class="n">2</span></li>
+          <li><span class="cls">Arcane Hiérophante</span><span class="n">1</span></li>
+        </ul>
+        <div class="foot">
+          <span class="where">Les Ombres d'Averoigne · 2 hours ago</span>
+          <button class="kill" aria-label="Delete Zul'deroth">Delete</button>
+        </div>
+      </div>
+    </li>
+
+    <li>
+      <div class="plate">
+        <div class="band">
+          <button class="tok" aria-label="Change the portrait of Théodwyn of the Verdant March">
+            <svg class="art" viewBox="0 0 100 100"><use href="#p3"/></svg>
+          </button>
+          <button class="open" aria-label="Open Théodwyn of the Verdant March">
+            <span class="nm">Théodwyn of the Verdant March</span>
+            <span class="race">Elf</span>
+          </button>
+          <p class="total"><span class="cap">Level</span><span class="n">12</span></p>
+        </div>
+        <ul class="ledger">
+          <li><span class="cls">Wizard</span><span class="n">12</span></li>
+        </ul>
+        <div class="foot">
+          <span class="where">Rise of the Runelords · 3 weeks ago</span>
+          <button class="kill" aria-label="Delete Théodwyn of the Verdant March">Delete</button>
+        </div>
+      </div>
+    </li>
+
+    <li>
+      <div class="plate">
+        <div class="band">
+          <button class="tok" aria-label="Change the portrait of Marrow-Grin, Devourer of Pallid Hopes">
+            <svg class="art" viewBox="0 0 100 100"><use href="#p2"/></svg>
+          </button>
+          <button class="open" aria-label="Open Marrow-Grin, Devourer of Pallid Hopes">
+            <span class="nm">Marrow-Grin, Devourer of Pallid Hopes</span>
+            <span class="race">Half-orc</span>
+          </button>
+          <p class="total"><span class="cap">Level</span><span class="n">8</span></p>
+        </div>
+        <ul class="ledger">
+          <li><span class="cls">Barbarian</span><span class="n">5</span></li>
+          <li><span class="cls">Fighter</span><span class="n">2</span></li>
+          <li><span class="cls">Rogue</span><span class="n">1</span></li>
+        </ul>
+        <div class="foot">
+          <span class="where">Curse of the Crimson Throne · 5 months ago</span>
+          <button class="kill" aria-label="Delete Marrow-Grin, Devourer of Pallid Hopes">Delete</button>
+        </div>
+      </div>
+    </li>
+
+    <!-- Nothing filled in. The ledger becomes the invitation. -->
+    <li>
+      <div class="plate">
+        <div class="band">
+          <button class="tok" aria-label="Add a portrait for test2">
+            <svg class="glyph" viewBox="0 0 24 24"><use href="#glyph"/></svg>
+          </button>
+          <button class="open" aria-label="Open test2">
+            <span class="nm">test2</span>
+            <span class="race none">Race not set</span>
+          </button>
+          <p class="total"><span class="cap">Level</span><span class="n zero">—</span></p>
+        </div>
+        <p class="noclass">
+          <b>No class yet</b>
+          Open the sheet and add one — the level works itself out from there.
+        </p>
+        <div class="foot">
+          <span class="where none">No campaign · 6 minutes ago</span>
+          <button class="kill" aria-label="Delete test2">Delete</button>
+        </div>
+      </div>
+    </li>
+
+    <li>
+      <div class="plate unnamed">
+        <div class="band">
+          <button class="tok" aria-label="Add a portrait for Unnamed character">
+            <svg class="glyph" viewBox="0 0 24 24"><use href="#glyph"/></svg>
+          </button>
+          <button class="open" aria-label="Open Unnamed character">
+            <span class="nm">Unnamed character</span>
+            <span class="race">Dwarf</span>
+          </button>
+          <p class="total"><span class="cap">Level</span><span class="n">1</span></p>
+        </div>
+        <ul class="ledger">
+          <li><span class="cls">Cleric</span><span class="n">1</span></li>
+        </ul>
+        <div class="foot">
+          <span class="where none">No campaign · Just now</span>
+          <button class="kill" aria-label="Delete Unnamed character">Delete</button>
+        </div>
+      </div>
+    </li>
+
+  </ul>
+
+  <div class="notes">
+    <h2>What this exploration is claiming</h2>
+    <dl>
+      <dt>Axis</dt>
+      <dd>Material. The sheet already tells derived from typed by <em>place</em> — slate rail
+        beside parchment column — and the first screen anyone sees teaches none of it. This tile
+        is both materials.</dd>
+
+      <dt>Signature</dt>
+      <dd>The <b>class ledger</b>. One row per class, its level right-aligned in a
+        <code>--fig</code>-wide column that is the same column the gold total sits in up in the
+        slate — so the 4 and the 3 line up directly under the 7. The tile shows its own
+        arithmetic, on the one screen that deliberately never calls
+        <code>/api/derive</code>.</dd>
+
+      <dt>Fixes</dt>
+      <dd>"druide 4 / mage 2 / Arcane Hiérophante 1" is one string that wraps into soup at any
+        card width. Three rows never wrap, and each class is readable on its own.</dd>
+
+      <dt>Delete</dt>
+      <dd>Demoted, not hidden and not confirmed. Today it is an outline button — a frame, a fill
+        and a border at the same weight as the thing you came for. Here it is quiet text at the
+        end of the foot that colours only on hover and focus. F's two-step confirm is separable
+        and can sit on top.</dd>
+
+      <dt>Empty state</dt>
+      <dd>The ledger becomes the invitation: <em>"No class yet — open the sheet and add one, the
+        level works itself out from there."</em> A tile with nothing in it should say what to do
+        next, not leave a gap where a list would be.</dd>
+
+      <dt>Costs</dt>
+      <dd>The <code>--rail-*</code> tokens reach a component outside <code>DerivedRail</code> for
+        the first time — a real decision, since the rail's material currently <em>means</em> "the
+        engine worked this out", and the level is the only figure here that qualifies. Two
+        dictionary keys, one <code>--fig</code> measurement shared by two elements, no API change,
+        no new font, no new icon.</dd>
+
+      <dt>Risks</dt>
+      <dd>Height varies with class count, so a row of tiles is ragged unless the grid stretches
+        them — kept here by <code>li{display:flex}</code> plus <code>margin-top:auto</code> on the
+        foot. And a character with six classes is a tall tile; a cap with "+2 more" would be the
+        obvious next question.</dd>
+
+      <dt>Kept</dt>
+      <dd>Name and race remain <b>one</b> control carrying <code>characters.open</code>; the
+        portrait remains an upload control whose writes never touch <code>version</code>; every
+        field shown is one <code>CharacterSummary</code> already sends.</dd>
+    </dl>
+  </div>
+</main>
+
+</body>
+</html>
