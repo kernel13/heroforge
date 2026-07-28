@@ -7,6 +7,7 @@
  */
 import type {
   CharacterPatch,
+  CharacterPortrait,
   CharacterSummary,
   CharacterWithDerived,
   DerivedSheet,
@@ -35,6 +36,27 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The `ApiError` a failed response carries.
+ *
+ * Split out of `request` because the portrait upload cannot go through it — it sends a `Blob`
+ * under the image's own `Content-Type` — and an upload that failed should still fail in the one
+ * shape the rest of the client throws.
+ */
+async function problemFrom(response: Response): Promise<ApiError> {
+  let problem: Problem | null = null;
+  try {
+    problem = (await response.json()) as Problem;
+  } catch {
+    problem = null;
+  }
+  return new ApiError(
+    response.status,
+    problem,
+    problem?.detail ?? problem?.title ?? response.statusText,
+  );
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
     credentials: "same-origin",
@@ -42,19 +64,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
   });
 
-  if (!response.ok) {
-    let problem: Problem | null = null;
-    try {
-      problem = (await response.json()) as Problem;
-    } catch {
-      problem = null;
-    }
-    throw new ApiError(
-      response.status,
-      problem,
-      problem?.detail ?? problem?.title ?? response.statusText,
-    );
-  }
+  if (!response.ok) throw await problemFrom(response);
 
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
@@ -110,7 +120,8 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
 
-  getCharacter: (id: string) => request<CharacterWithDerived>(`/api/characters/${id}`),
+  getCharacter: (id: string) =>
+    request<CharacterWithDerived>(`/api/characters/${id}`),
 
   patchCharacter: (id: string, patch: CharacterPatch) =>
     request<CharacterWithDerived>(`/api/characters/${id}`, {
@@ -120,6 +131,36 @@ export const api = {
 
   deleteCharacter: (id: string) =>
     request<void>(`/api/characters/${id}`, { method: "DELETE" }),
+
+  /**
+   * The portrait, as the raw body with `Content-Type` naming the image's type.
+   *
+   * `request` sets `application/json` for any body it is given, so this does not go through it —
+   * a `Blob` sent as JSON would be stored as a corrupt PNG rather than refused. It is also outside
+   * the character's `version`: uploading a portrait must not 409 a sheet open in another tab.
+   */
+  uploadPortrait: async (
+    id: string,
+    image: Blob,
+  ): Promise<CharacterPortrait> => {
+    const response = await fetch(`/api/characters/${id}/portrait`, {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { "Content-Type": image.type },
+      body: image,
+    });
+    if (!response.ok) throw await problemFrom(response);
+    return (await response.json()) as CharacterPortrait;
+  },
+
+  deletePortrait: (id: string) =>
+    request<CharacterPortrait>(`/api/characters/${id}/portrait`, {
+      method: "DELETE",
+    }),
+
+  /** Where the card points its `<img>`. Cache-busted, so a replacement is a different URL. */
+  portraitUrl: (id: string, updatedAt: string) =>
+    `/api/characters/${id}/portrait?v=${encodeURIComponent(updatedAt)}`,
 
   /** Stateless. Persists nothing; every derived number on screen comes from here. */
   derive: (body: unknown) =>
