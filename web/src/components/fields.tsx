@@ -333,6 +333,35 @@ export function Note({ children }: { children: ReactNode }) {
 }
 
 /**
+ * The key to the marks a table puts beside its rows: each mark paired with what it means.
+ *
+ * A `<dl>`, not a sentence with the marks spliced into it. A mark and its meaning are a term and
+ * its definition, and the reader consulting this is looking *up* a symbol they have just seen in
+ * the table — which a paragraph makes them read through to find. It is deliberately not a child of
+ * `Note`: that is a `<p>`, and a list nested in one is invalid markup that jsdom will not complain
+ * about and a browser will silently close early.
+ *
+ * The mark carries no `title` of its own. Here it is already beside its meaning, and a `title`
+ * repeating the text next to it is one more thing for a screen reader to read twice. The row flags
+ * in the table keep theirs — that is where the explanation is not otherwise on screen.
+ */
+export function MarkKey({ marks }: { marks: readonly { mark: string; meaning: string }[] }) {
+  return (
+    <dl className="mt-2.5 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+      {marks.map(({ mark, meaning }) => (
+        <div key={mark} className="flex items-baseline gap-1.5">
+          {/* A fixed narrow column for the mark, so that when the key stacks — one entry per line
+              on a phone — the meanings start at the same place instead of stepping in and out with
+              the width of `*`, `**` and `T`. */}
+          <dt className="min-w-5 font-semibold text-primary">{mark}</dt>
+          <dd>{meaning}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/**
  * A section's icon.
  *
  * `aria-hidden` is applied here, once, rather than at each of the twenty-odd callsites. The

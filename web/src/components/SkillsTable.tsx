@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { Note, Panel, controlClass, numberClass, signed } from "./fields";
+import { MarkKey, Note, Panel, controlClass, numberClass, signed } from "./fields";
 import { IconSkills } from "./icons";
 
 interface Props {
@@ -63,6 +63,20 @@ function label(
     ? `${base} (${row.specialization})`
     : base;
 }
+
+/**
+ * The marks a row can carry, each with what it means — written once, read twice.
+ *
+ * The flag beside a skill's name and the entry in the key under the table are the same fact in two
+ * places, and the glyph is as much of that fact as the sentence is. Kept apart, a `*` changed on
+ * the row leaves a key explaining a mark that is no longer drawn — the failure is invisible,
+ * because both halves still render.
+ */
+const MARKS = {
+  acp: { mark: "*", meaning: "skills.acp" },
+  acpDouble: { mark: "**", meaning: "skills.acpDouble" },
+  trained: { mark: "T", meaning: "skills.trainedOnly" },
+} as const satisfies Record<string, { mark: string; meaning: TranslationKey }>;
 
 const HEADINGS = [
   { key: "skills.head.class", title: "skills.head.class.title" },
@@ -226,17 +240,17 @@ export function SkillsTable({ draft, skills, totalRanks, definitions, update }: 
                       {!definition.usable_untrained && (
                         <abbr
                           className="text-xs text-primary no-underline"
-                          title={t("skills.trainedOnly")}
+                          title={t(MARKS.trained.meaning)}
                         >
-                          T
+                          {MARKS.trained.mark}
                         </abbr>
                       )}
                       {definition.armor_check_penalty && (
                         <abbr
                           className="text-xs text-primary no-underline"
-                          title={t(definition.acp_double ? "skills.acpDouble" : "skills.acp")}
+                          title={t((definition.acp_double ? MARKS.acpDouble : MARKS.acp).meaning)}
                         >
-                          {definition.acp_double ? "**" : "*"}
+                          {(definition.acp_double ? MARKS.acpDouble : MARKS.acp).mark}
                         </abbr>
                       )}
                     </span>
@@ -321,15 +335,16 @@ export function SkillsTable({ draft, skills, totalRanks, definitions, update }: 
         {t("skills.addRow")}
       </Button>
 
-      {/* The three markers are elements inside the sentence, so the sentence is interpolated
-          rather than cut into fragments — French puts them in different places. */}
-      <Note>
-        {interpolate(t("skills.note"), {
-          acp: <abbr title={t("skills.acp")}>*</abbr>,
-          acpDouble: <abbr title={t("skills.acpDouble")}>**</abbr>,
-          trained: <abbr title={t("skills.trainedOnly")}>T</abbr>,
-        })}
-      </Note>
+      {/* Two kinds of small print, and they were one paragraph: a key to the marks in the table
+          above, and the two rules the table's own columns cannot state. The key is a `<dl>`, so a
+          reader who has just seen a `**` beside a row finds it by scanning marks rather than by
+          reading a sentence to its end. Its three meanings are the same dictionary entries the row
+          flags carry as their `title`, so the table and its key cannot drift apart. */}
+      <MarkKey
+        marks={Object.values(MARKS).map(({ mark, meaning }) => ({ mark, meaning: t(meaning) }))}
+      />
+      <Note>{t("skills.note.ranks")}</Note>
+      <Note>{t("skills.note.total")}</Note>
     </Panel>
   );
 }

@@ -437,6 +437,19 @@ warnings in tokens, the API serves every name it holds, and the client decides w
   an empty block has no box and is never `toBeVisible()`.
 - **Do not convert the skills table's `<abbr title>` flags to `Tooltip`.** A tooltip moves the
   explanation into `aria-describedby` and drops the `title` attribute the tests read.
+- **The marks are explained by a key, and the rules by the note.** They were one paragraph carrying
+  both, with `*`, `**` and `T` spliced into its sentences — so a reader who had just seen a mark
+  beside a row had to read prose to the end to find out what it meant. `fields.tsx`'s **`MarkKey`**
+  draws them as a `<dl>`, mark as `<dt>` and meaning as `<dd>`, built from **`MARKS` in
+  `SkillsTable.tsx`** — the glyph *and* its dictionary key, which the row flags read too, because a
+  `*` changed on a row and not in the key leaves both halves still rendering and only one of them
+  right. It is a sibling of `Note`, never a child:
+  `Note` is a `<p>` and a list inside one is markup jsdom accepts and a browser closes early. A key
+  entry carries no `title` of its own — its meaning is already beside it. The note is what is left:
+  the rank maximum and when a total appears, one sentence each. That maximum previously read
+  "level + 3 whether it is a class skill or not" on screen **and** in `pdf.skills.note`, which is
+  not what `max_ranks()` does; both now say half, rounded down, for a cross-class skill, in the
+  wording `warning.kind.cross_class` already uses.
 - **Only a blank row a player added is removable**, gated on `skill_id` being null rather than on
   the definition being missing — a row pointing at a skill the current bundle has never heard of is
   still an SRD row, and offering to delete it turns a stale build into lost data. Removing an SRD

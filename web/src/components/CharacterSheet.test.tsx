@@ -80,18 +80,55 @@ describe("displaying derived values", () => {
     expect(screen.getByLabelText("Push or drag")).toHaveTextContent("750 lb.");
   });
 
+  /**
+   * The `**` beside the row, not the one in the key under the table.
+   *
+   * The flag is drawn from the row's *definition*, so the draft has to carry a Swim row for it to
+   * appear at all — a derived Swim skill alone renders nothing, because the table walks the draft.
+   * This assertion used to pass against the marks the note paragraph carried, which said nothing
+   * about the row.
+   */
   it("marks Swim as taking the armour check penalty twice", () => {
-    renderSheet({
-      skills: [
-        derivedSkill({
-          skill_id: 32,
-          name: "Swim",
-          key_ability: "STR",
-          armor_check_penalty: -16,
-        }),
-      ],
-    });
+    const stored = character().skills![0]!;
+    renderIn(
+      <CharacterSheet
+        character={character({
+          skills: [{ ...stored, id: null, ordinal: 1, skill_id: 32 }],
+        })}
+        initialDerived={derivedSheet({
+          skills: [
+            derivedSkill({
+              skill_id: 32,
+              name: "Swim",
+              key_ability: "STR",
+              armor_check_penalty: -16,
+            }),
+          ],
+        })}
+        definitions={DEFINITIONS}
+        onBack={() => {}}
+      />,
+    );
     expect(screen.getByTitle("Armour check penalty applies twice")).toHaveTextContent("**");
+  });
+
+  /**
+   * The key under the table, which is where the three marks are explained now that the note
+   * paragraph no longer splices them into a sentence. Each mark is a `<dt>` and its meaning the
+   * `<dd>` beside it, and the meanings are the same dictionary entries the row flags carry as
+   * their `title` — so the table and its key cannot come to disagree.
+   */
+  it("explains each of the skills table's marks under it", () => {
+    renderSheet();
+
+    for (const [mark, meaning] of [
+      ["*", "Armour check penalty applies"],
+      ["**", "Armour check penalty applies twice"],
+      ["T", "Trained only"],
+    ]) {
+      const term = screen.getByText(mark!, { selector: "dt" });
+      expect(term.nextElementSibling).toHaveTextContent(meaning!);
+    }
   });
 
   it("shows a skill total only once the skill has a rank in it", () => {

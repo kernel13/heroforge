@@ -337,8 +337,10 @@ export const fr: Dictionary = {
   "skills.acpDouble": "Le malus d'armure aux tests s'applique deux fois",
   "skills.addRow": "Ajouter une ligne de compétence",
   "skills.newSkill": "Nouvelle compétence",
-  "skills.note":
-    "Les rangs sont des nombres entiers, et le maximum dans une compétence est le niveau du personnage + 3, qu'elle soit de classe ou non. Le total s'affiche dès qu'une compétence a au moins un rang. {acp} signale une compétence à laquelle le malus d'armure aux tests s'applique ; {acpDouble} signale Natation, où il s'applique deux fois. {trained} signale une compétence inutilisable sans formation.",
+  // « hors classe » est le mot de `warning.kind.cross_class` : le même terme sur le même panneau.
+  "skills.note.ranks":
+    "Les rangs sont des nombres entiers. Le maximum dans une compétence est le niveau du personnage + 3, ou la moitié de ce total, arrondie à l'inférieur, pour une compétence hors classe.",
+  "skills.note.total": "Le total s'affiche dès qu'une compétence a au moins un rang.",
 
   // ── Classe et niveau ─────────────────────────────────────────────────────────────────────
   "classLevels.class": "Classe",
@@ -528,7 +530,7 @@ export const fr: Dictionary = {
   "pdf.skills.head.abil": "Caract.",
   "pdf.skills.head.acp": "MAT",
   "pdf.skills.note":
-    "Une case pleine indique une compétence de classe. † ne peut pas être utilisée sans formation. Les rangs sont des nombres entiers, et le maximum dans une compétence est le niveau du personnage + 3, qu'elle soit de classe ou non. Une compétence sans rang n'affiche pas de total.",
+    "Une case pleine indique une compétence de classe. † ne peut pas être utilisée sans formation. Les rangs sont des nombres entiers, et le maximum dans une compétence est le niveau du personnage + 3, ou la moitié de ce total arrondie à l'inférieur pour une compétence hors classe. Une compétence sans rang n'affiche pas de total.",
   "pdf.gear.slot.armour": "Armure / objet de protection",
   "pdf.gear.slot.shield": "Bouclier / objet de protection",
   "pdf.gear.note":

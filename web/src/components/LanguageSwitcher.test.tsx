@@ -251,8 +251,10 @@ describe("the sheet in French", () => {
     expect(screen.getByText(/\{max\}/)).toBeInTheDocument();
     expect(screen.getByText(/\{level\}/)).toBeInTheDocument();
     // The parts that did arrive are still translated and still named from the reference data.
-    expect(screen.getByText(/Discrétion : 12 rangs/)).toBeInTheDocument();
-    expect(screen.getByText(/hors classe/)).toBeInTheDocument();
+    // Both in one assertion, on the warning's own line: "hors classe" is also the wording the
+    // skills note uses for the cross-class rank maximum, and a bare /hors classe/ now matches
+    // that paragraph too.
+    expect(screen.getByText(/Discrétion : 12 rangs.*hors classe/)).toBeInTheDocument();
   });
 
   it("keeps the tab strip and both pages in the same language", async () => {

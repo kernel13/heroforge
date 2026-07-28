@@ -368,8 +368,13 @@ export const en = {
   "skills.acpDouble": "Armour check penalty applies twice",
   "skills.addRow": "Add a skill row",
   "skills.newSkill": "New skill",
-  "skills.note":
-    "Ranks are whole numbers, and the maximum in any skill is your character level + 3 whether it is a class skill or not. A total appears once a skill has at least one rank. {acp} marks a skill the armour check penalty applies to; {acpDouble} marks Swim, where it applies twice. {trained} marks a skill that cannot be used untrained.",
+  // The two rules the table's own columns cannot state, one sentence each. The marks are no longer
+  // spliced into this paragraph: they are a key of their own under the table, built from
+  // `skills.acp`, `skills.acpDouble` and `skills.trainedOnly` above — the same three entries the
+  // row flags carry as their `title`, so a mark and its explanation are written once.
+  "skills.note.ranks":
+    "Ranks are whole numbers. The maximum in any skill is your character level + 3, or half that, rounded down, for a cross-class skill.",
+  "skills.note.total": "A total appears once a skill has at least one rank.",
 
   // ── Class and level ──────────────────────────────────────────────────────────────────────
   "classLevels.class": "Class",
@@ -568,7 +573,7 @@ export const en = {
   "pdf.skills.head.abil": "Abil.",
   "pdf.skills.head.acp": "ACP",
   "pdf.skills.note":
-    "A filled mark is a class skill. † may not be used untrained. Ranks are whole numbers, and the maximum in any skill is the character level + 3 whether it is a class skill or not. A skill with no ranks shows no total.",
+    "A filled mark is a class skill. † may not be used untrained. Ranks are whole numbers, and the maximum in any skill is the character level + 3, or half that, rounded down, for a cross-class skill. A skill with no ranks shows no total.",
   "pdf.gear.slot.armour": "Armour / protective item",
   "pdf.gear.slot.shield": "Shield / protective item",
   "pdf.gear.note":
