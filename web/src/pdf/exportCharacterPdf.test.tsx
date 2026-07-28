@@ -12,6 +12,7 @@
  * — a `useI18n()` that throws inside the layout engine — only shows up when the document is
  * actually laid out.
  */
+import { isValidElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { sortBySkillName, translatorFor } from "../i18n";
 import { character, derivedSheet, derivedSkill, DEFINITIONS } from "../test/fixtures";
@@ -190,6 +191,65 @@ describe("rendering the document", () => {
     expect(blob.type).toBe("application/pdf");
     expect(blob.size).toBeGreaterThan(1000);
   }, 20_000);
+
+  /**
+   * The spellbook page, laid out for real with a book big enough to break across pages.
+   *
+   * A book is unbounded — this is the one part of the export that has no length the page can be
+   * sized around — so what is being checked is that the layout engine paginates it instead of
+   * clipping it, in both languages: `École` and a French spell name are wider than the English in
+   * a half-page column.
+   */
+  it.each([
+    ["English", EN],
+    ["French", FR],
+  ])("lays out a spellbook long enough to need a page break in %s", async (_language, translator) => {
+    // Sixty spells, spread unevenly: level 1 alone is longer than a page column holds.
+    const spellbook = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((level) =>
+      Array.from({ length: level === 1 ? 24 : 4 }, (_, index) => ({
+        name: `Sort de niveau ${level} numéro ${index + 1}`,
+        school: "Enchantement (charme)",
+        page: `${200 + index}`,
+      })),
+    );
+    const blob = await renderCharacterPdf(
+      character({ name: "Beorn Ironhand", spells_raw: { spellbook } }),
+      derivedSheet(),
+      options(translator),
+    );
+    expect(blob.type).toBe("application/pdf");
+    expect(blob.size).toBeGreaterThan(1000);
+  }, 20_000);
+
+  /**
+   * Whether the third page exists at all, checked on the element tree rather than the bytes.
+   *
+   * A blank page headed SPELLBOOK on every non-caster's export is the defect this guards, and the
+   * blob cannot be asked how many pages it has without the byte comparison this file's docstring
+   * rules out.
+   */
+  it("adds the spellbook page only for a character who has scribed something", async () => {
+    const { CharacterSheetDocument } = await import("./CharacterSheetDocument");
+    const { Page } = await import("@react-pdf/renderer");
+    const pages = (spells_raw: Record<string, unknown>) => {
+      const document = CharacterSheetDocument({
+        character: character({ spells_raw }),
+        derived: derivedSheet(),
+        translator: EN,
+        definitions: DEFINITIONS,
+      });
+      const children = document.props.children as ReactNode[];
+      return children.filter(
+        (child) => isValidElement(child) && child.type === Page,
+      ).length;
+    };
+
+    expect(pages({})).toBe(2);
+    // A row a player added and never filled in is not a spell; a page of ruled blanks is not a
+    // book. Same rule the entry lines apply one level down.
+    expect(pages({ spellbook: [[{ name: "", school: "", page: "" }]] })).toBe(2);
+    expect(pages({ spellbook: [[], [{ name: "Magic missile", school: "Evocation", page: "251" }]] })).toBe(3);
+  });
 
   /**
    * The exported sheet is read at a table, next to the screen it came from. If the two disagree

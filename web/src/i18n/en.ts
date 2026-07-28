@@ -537,6 +537,7 @@ export const en = {
   "pdf.section.specialAbilities": "Special abilities",
   "pdf.section.languages": "Languages",
   "pdf.section.spells": "Spells",
+  "pdf.section.spellbook": "Spellbook",
   "pdf.abilities.note":
     "‡ marks the score the modifier was taken from. A temporary score replaces the base score everywhere the sheet uses it, so the base is set back rather than removed.",
   "pdf.field.classAndLevel": "Class and level",
@@ -599,7 +600,14 @@ export const en = {
   "pdf.spells.head.perDay": "Per day",
   "pdf.spells.head.bonus": "Bonus",
   "pdf.spells.note":
-    "Spells known, save DC, spells per day, and bonus spells are written down, not worked out: deriving them needs class progression tables. The spells themselves are in the notes beside this grid.",
+    "Spells known, save DC, spells per day, and bonus spells are written down, not worked out: deriving them needs class progression tables. The spells themselves are in the notes beside this grid, and whatever is scribed in the book prints with it.",
+  // The book, printed on its own page. The plain number, as the screen's `spellbook.group` is: the
+  // written ordinal is a phrase each language builds for itself, and this is a heading, not a
+  // sentence. Nothing here is derived — a spell's level is its place in the book and its school is
+  // typed, both for the reasons `lib/spells.ts` gives.
+  "pdf.spellbook.group": "Level {level}",
+  "pdf.spellbook.note":
+    "What is written in the book, not what is prepared from it. How many spells of each level the character knows and can cast per day is the spell grid on the previous page. A level with nothing scribed at it is left out.",
   "pdf.page.label": "p. {page}",
 } as const;
 

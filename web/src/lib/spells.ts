@@ -222,6 +222,22 @@ export function casterNames(casters: SpellCaster[], t: Translator["t"]): string[
   });
 }
 
+/**
+ * Whether a spell has anything written on it — what decides if the export prints its line.
+ *
+ * A row a player added and then left alone is a real state on screen, where the empty boxes are the
+ * invitation to fill them in. On a printout it is a ruled line with nothing on it, which is what
+ * `Attacks` drops five of.
+ */
+export function spellbookEntryIsEmpty(entry: SpellbookEntry): boolean {
+  return entry.name === "" && entry.school === "" && entry.page === "";
+}
+
+/** Whether the book holds a single written spell — what decides if the export prints its page. */
+export function spellbookIsEmpty(spellbook: Spellbook): boolean {
+  return spellbook.every((group) => group.every(spellbookEntryIsEmpty));
+}
+
 /** Whether a caster carries anything at all — what decides if the export prints its block. */
 export function casterIsEmpty(caster: SpellCaster): boolean {
   return (

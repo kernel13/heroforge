@@ -617,14 +617,24 @@ icon dependency.
 
 ### PDF export (`web/src/pdf/`)
 
-`@react-pdf/renderer` builds a two-page sheet in the browser; the button is in the sheet header.
+`@react-pdf/renderer` builds the sheet in the browser; the button is in the sheet header.
 
-- **The export is two pages and the screen is three: the spellbook is deliberately not exported
-  yet.** This is a known, stated gap rather than an oversight — the book is an unbounded list and
-  paginating it properly is its own piece of work, `pageNumber`/`totalPages` in the footer already
-  handle a growing document, and shipping a truncated book would be worse than shipping none.
-  Printing it is the next thing this section gains; until it does, do not describe the export as
-  "the sheet" without qualification.
+- **The two sheet pages always print; the spellbook page prints only for a character who has
+  scribed something.** A blank page headed SPELLBOOK on every fighter's export is what `Attacks`
+  refuses five blank frames of, one scale up, so `CharacterSheetDocument` gates the third `<Page>`
+  on `spellbookIsEmpty()` and `Spellbook` drops both a level with nothing at it and a row a player
+  added and never filled in. It follows that the export has **no fixed page count** — do not write
+  "the two-page export" back into this file or into a footer; `pageNumber`/`totalPages` already
+  handle a document that grows, and a book of three hundred spells does grow it.
+- **A spellbook line is `wrap={false}`, and that is the whole reason `SpellbookEntryLine` is a
+  component.** react-pdf breaks a laid-out row wherever the page ends: before that flag, a book long
+  enough to paginate left a spell's school and page reference at the foot of one page with its name
+  at the head of the next. A line is one reading and moves whole. The level *group* around it keeps
+  `wrap` — a wizard can have thirty spells at one level, and a group told to stay whole is pushed
+  onto a page it still overruns.
+- **Spells print two to a row**, in a `flexWrap` container as the caster blocks do. A spell name is
+  a few words and its school shorter still; a full-width line each spends two thirds of the page on
+  white space and doubles the length of a book.
 - **The renderer is imported dynamically, inside the click handler.** It is a 1.4 MB chunk. Turning
   `import("@react-pdf/renderer")` into a static import puts it in the initial bundle, which is a
   half-megabyte tax on every page load for a button most sessions never press.

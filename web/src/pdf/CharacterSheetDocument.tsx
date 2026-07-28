@@ -7,6 +7,9 @@
  * blocks, and the skills column; page two carries gear, possessions and encumbrance, money, feats,
  * special abilities, languages, and spells. That structure is mechanical and comes from the SRD.
  *
+ * The spellbook page after them is not from that form — the form has no such page. It prints only
+ * for a character who has scribed something, and it is as long as the book is.
+ *
  * The visual design is this application's own — see `theme.ts`.
  *
  * **Nothing here computes a rule.** Every derived number is read off the `DerivedSheet` the API
@@ -36,7 +39,10 @@ import {
   emptyLevelRow,
   readSpellBook,
   spellLevelKey,
+  spellbookEntryIsEmpty,
+  spellbookIsEmpty,
   type SpellCaster,
+  type SpellbookEntry,
   type SpellLevelRow,
 } from "../lib/spells";
 import { Field, Formula, Note, Row, RuledField, Section, SubHeading } from "./primitives";
@@ -146,6 +152,12 @@ const styles = StyleSheet.create({
   /** The spell blocks: half the page each, so two casting classes sit side by side. */
   casterRow: { flexDirection: "row", flexWrap: "wrap" },
   casterBlock: { width: "50%", paddingRight: 8, marginBottom: 4 },
+
+  /** The book: one group per spell level, its spells two to a row inside it. */
+  spellbookGroup: { marginBottom: 5 },
+  spellbookEntries: { flexDirection: "row", flexWrap: "wrap" },
+  spellbookEntry: { width: "50%", paddingRight: 10 },
+  spellbookSchool: { fontSize: 6, color: COLOR.inkSoft, marginRight: 4 },
   spellGridLevel: {
     fontFamily: FONT.bold,
     fontSize: 6.5,
@@ -971,6 +983,79 @@ function Spells({ character, translator }: Props) {
 }
 
 /**
+ * One spell as the book records it: what it is called, what school it belongs to, and where the
+ * rulebook writes it up. The same three columns page three shows, laid out as the feats and
+ * special-abilities lists are — a line with the name on it and the reference set back at the end.
+ *
+ * Two to a row. A spell name is a few words and the school shorter still; a full-width line each
+ * would spend two thirds of the page on white space and double the length of a wizard's book.
+ */
+function SpellbookEntryLine({ entry, t }: { entry: SpellbookEntry; t: Translator["t"] }) {
+  return (
+    // `wrap={false}`, and this is the whole reason the line is a component: react-pdf breaks a
+    // laid-out row wherever the page ends, and a book long enough to paginate was leaving a
+    // spell's school and page at the foot of one page with its name at the head of the next.
+    // The line is one reading; it moves whole or not at all.
+    <View style={styles.spellbookEntry} wrap={false}>
+      <View style={styles.listLine}>
+        <Text style={[styles.listText, { flex: 1, paddingRight: 4 }]}>{blank(entry.name, t)}</Text>
+        {entry.school !== "" && <Text style={styles.spellbookSchool}>{entry.school}</Text>}
+        {entry.page !== "" && (
+          <Text style={styles.listPage}>{t("pdf.page.label", { page: entry.page })}</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * The spellbook — a page of its own, and this application's own: the printed record sheet has no
+ * such page, because a book of scribed spells is a list with no length and paper has to stop
+ * somewhere. A PDF does not, so the book prints in full and the footer's page count grows with it.
+ *
+ * This is the book's *contents*; page two's grid is what is cast out of it. The two answer
+ * different questions at the table, which is why both are printed.
+ *
+ * **A spell's level is its position in the book**, never a field on the entry — see
+ * `lib/spells.ts`. So the levels are headings over their spells rather than a column beside them,
+ * exactly as page three draws them.
+ *
+ * A level with nothing scribed at it is left out, and so is a row a player added and never filled
+ * in. That is `Attacks`' rule: on screen an empty row is the invitation to fill it, on a printout
+ * it is a ruled line saying nothing. `pdf.spellbook.note` says so, since an absent level 6 reads as
+ * a defect otherwise.
+ */
+function Spellbook({ character, translator: { t } }: Props) {
+  const { spellbook } = readSpellBook(character.spells_raw);
+  return (
+    <Section title={t("pdf.section.spellbook")} wrap>
+      {SPELL_LEVELS.map((level) => {
+        const entries = (spellbook[level] ?? []).filter(
+          (entry) => !spellbookEntryIsEmpty(entry),
+        );
+        if (entries.length === 0) return null;
+        return (
+          // `wrap` on the group as well as the section: a wizard can have thirty spells at one
+          // level, and a group told to stay whole would be pushed to a page it still overruns.
+          // `minPresenceAhead` is what keeps the level heading off the foot of a page with its
+          // first spell overleaf — the same defect the entry line's `wrap={false}` fixes, one
+          // level up, and 20pt is a heading and a line of spells.
+          <View key={level} style={styles.spellbookGroup} wrap minPresenceAhead={20}>
+            <SubHeading>{t("pdf.spellbook.group", { level })}</SubHeading>
+            <View style={styles.spellbookEntries}>
+              {entries.map((entry, index) => (
+                <SpellbookEntryLine key={index} entry={entry} t={t} />
+              ))}
+            </View>
+          </View>
+        );
+      })}
+      <Note>{t("pdf.spellbook.note")}</Note>
+    </Section>
+  );
+}
+
+/**
  * The warnings, printed as the engine sent them.
  *
  * Unlike the on-screen panel, these lines are **not** rebuilt from `code` and `params`: the
@@ -997,6 +1082,9 @@ function Warnings({ derived, translator: { t } }: Props) {
 export function CharacterSheetDocument({ character, derived, translator, definitions }: Props) {
   const props = { character, derived, translator, definitions };
   const { t } = translator;
+  // The third page prints only when there is a book to print. A blank page headed SPELLBOOK on
+  // every fighter's export is what `Attacks` refuses five blank frames of, one scale up.
+  const hasSpellbook = !spellbookIsEmpty(readSpellBook(character.spells_raw).spellbook);
   // Alphabetical in the document's language, by the same rule the screen uses — sorted before
   // the column is split, so the overflow continues the alphabet rather than restarting it.
   const skills = sortBySkillName(
@@ -1089,6 +1177,16 @@ export function CharacterSheetDocument({ character, derived, translator, definit
         <Warnings {...props} />
         <Footer {...props} />
       </Page>
+
+      {hasSpellbook && (
+        <Page size={PAGE.size} style={styles.page}>
+          {/* A page that can be read on its own has to name the character on it: a spellbook
+              separated from the two sheets in front of it is otherwise anybody's. */}
+          <Masthead {...props} />
+          <Spellbook {...props} />
+          <Footer {...props} />
+        </Page>
+      )}
     </Document>
   );
 }

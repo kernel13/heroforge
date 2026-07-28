@@ -494,6 +494,7 @@ export const fr: Dictionary = {
   "pdf.section.specialAbilities": "Capacités spéciales",
   "pdf.section.languages": "Langues",
   "pdf.section.spells": "Sorts",
+  "pdf.section.spellbook": "Grimoire",
   "pdf.abilities.note":
     "‡ signale la valeur dont provient le modificateur. Une valeur temporaire remplace la valeur de base partout où la feuille l'utilise ; la base est donc estompée plutôt que retirée.",
   "pdf.field.classAndLevel": "Classe et niveau",
@@ -555,6 +556,9 @@ export const fr: Dictionary = {
   "pdf.spells.head.perDay": "Par jour",
   "pdf.spells.head.bonus": "Suppl.",
   "pdf.spells.note":
-    "Connus = sorts connus, DD = degré de difficulté des jets de sauvegarde, Suppl. = sorts en bonus. Ces valeurs sont saisies et non calculées : les déduire demande les tables de progression des classes. Les sorts eux-mêmes figurent dans les notes à côté de cette grille.",
+    "Connus = sorts connus, DD = degré de difficulté des jets de sauvegarde, Suppl. = sorts en bonus. Ces valeurs sont saisies et non calculées : les déduire demande les tables de progression des classes. Les sorts eux-mêmes figurent dans les notes à côté de cette grille, et ceux qui sont consignés dans le grimoire sont imprimés avec la feuille.",
+  "pdf.spellbook.group": "Niveau {level}",
+  "pdf.spellbook.note":
+    "Ce qui est consigné dans le grimoire, et non ce qui en est préparé. Le nombre de sorts connus et lançables par jour à chaque niveau figure dans la grille de la page précédente. Un niveau dont aucun sort n’est consigné n’est pas imprimé.",
   "pdf.page.label": "p. {page}",
 };
