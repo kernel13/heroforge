@@ -25,6 +25,7 @@ class SkillAdmin(ModelView, model=Skill):
     column_list = [
         Skill.id,
         Skill.name,
+        Skill.name_fr,
         Skill.key_ability,
         Skill.armor_check_penalty,
         Skill.acp_double,

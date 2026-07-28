@@ -256,6 +256,9 @@ class SkillDefinitionRead(BaseModel):
 
     id: int
     name: str
+    name_fr: str | None = None
+    """Null where nobody has translated the skill yet; the client falls back to ``name``."""
+
     key_ability: Ability
     armor_check_penalty: bool
     acp_double: bool

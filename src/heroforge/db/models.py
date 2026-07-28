@@ -69,6 +69,15 @@ class Skill(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    name_fr: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    """The French name of the skill, for a client asking for French.
+
+    Nullable, and nullable on purpose: a skill added through ``sqladmin`` before anyone has
+    translated it is a skill the French sheet should still show, under its English name. The
+    engine never sees this column — it reasons about identifiers, and ``name`` is the one name it
+    is given.
+    """
+
     key_ability: Mapped[str] = mapped_column(String(3), nullable=False)
     armor_check_penalty: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     acp_double: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

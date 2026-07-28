@@ -4,42 +4,47 @@
 # acp_double           Swim only; the sheet's footnote reads "(Double penalty for Swim.)"
 # usable_untrained     the small filled square beside the skill name
 # sheet_rows           how many blank rows the printed form gives this skill
+# name_fr              the French name shown to a client asking for French
+#
+# The French names are this project's own translations. The SRD is published in English; nothing
+# here claims to be an official French wording, and the English `name` remains the identity of the
+# row — it is what the rules engine is handed and what a missing translation falls back to.
 #
 # Mechanics from the System Reference Document, used under the Open Game License 1.0a.
-version: 1
+version: 3
 skills:
-  - { id: 1,  name: Appraise,           key_ability: INT }
-  - { id: 2,  name: Balance,            key_ability: DEX, armor_check_penalty: true }
-  - { id: 3,  name: Bluff,              key_ability: CHA }
-  - { id: 4,  name: Climb,              key_ability: STR, armor_check_penalty: true }
-  - { id: 5,  name: Concentration,      key_ability: CON }
-  - { id: 6,  name: Craft,              key_ability: INT, takes_specialization: true, sheet_rows: 3 }
-  - { id: 7,  name: Decipher Script,    key_ability: INT, usable_untrained: false }
-  - { id: 8,  name: Diplomacy,          key_ability: CHA }
-  - { id: 9,  name: Disable Device,     key_ability: INT, usable_untrained: false }
-  - { id: 10, name: Disguise,           key_ability: CHA }
-  - { id: 11, name: Escape Artist,      key_ability: DEX, armor_check_penalty: true }
-  - { id: 12, name: Forgery,            key_ability: INT }
-  - { id: 13, name: Gather Information, key_ability: CHA }
-  - { id: 14, name: Handle Animal,      key_ability: CHA, usable_untrained: false }
-  - { id: 15, name: Heal,               key_ability: WIS }
-  - { id: 16, name: Hide,               key_ability: DEX, armor_check_penalty: true }
-  - { id: 17, name: Intimidate,         key_ability: CHA }
-  - { id: 18, name: Jump,               key_ability: STR, armor_check_penalty: true }
-  - { id: 19, name: Knowledge,          key_ability: INT, usable_untrained: false, takes_specialization: true, sheet_rows: 5 }
-  - { id: 20, name: Listen,             key_ability: WIS }
-  - { id: 21, name: Move Silently,      key_ability: DEX, armor_check_penalty: true }
-  - { id: 22, name: Open Lock,          key_ability: DEX, usable_untrained: false }
-  - { id: 23, name: Perform,            key_ability: CHA, takes_specialization: true, sheet_rows: 3 }
-  - { id: 24, name: Profession,         key_ability: WIS, usable_untrained: false, takes_specialization: true, sheet_rows: 2 }
-  - { id: 25, name: Ride,               key_ability: DEX }
-  - { id: 26, name: Search,             key_ability: INT }
-  - { id: 27, name: Sense Motive,       key_ability: WIS }
-  - { id: 28, name: Sleight of Hand,    key_ability: DEX, armor_check_penalty: true, usable_untrained: false }
-  - { id: 29, name: Spellcraft,         key_ability: INT, usable_untrained: false }
-  - { id: 30, name: Spot,               key_ability: WIS }
-  - { id: 31, name: Survival,           key_ability: WIS }
-  - { id: 32, name: Swim,               key_ability: STR, armor_check_penalty: true, acp_double: true }
-  - { id: 33, name: Tumble,             key_ability: DEX, armor_check_penalty: true, usable_untrained: false }
-  - { id: 34, name: Use Magic Device,   key_ability: CHA, usable_untrained: false }
-  - { id: 35, name: Use Rope,           key_ability: DEX }
+  - { id: 1,  name: Appraise,           name_fr: Estimation,             key_ability: INT }
+  - { id: 2,  name: Balance,            name_fr: Équilibre,              key_ability: DEX, armor_check_penalty: true }
+  - { id: 3,  name: Bluff,              name_fr: Bluff,                  key_ability: CHA }
+  - { id: 4,  name: Climb,              name_fr: Escalade,               key_ability: STR, armor_check_penalty: true }
+  - { id: 5,  name: Concentration,      name_fr: Concentration,          key_ability: CON }
+  - { id: 6,  name: Craft,              name_fr: Artisanat,              key_ability: INT, takes_specialization: true, sheet_rows: 3 }
+  - { id: 7,  name: Decipher Script,    name_fr: Décryptage,             key_ability: INT, usable_untrained: false }
+  - { id: 8,  name: Diplomacy,          name_fr: Diplomatie,             key_ability: CHA }
+  - { id: 9,  name: Disable Device,     name_fr: Désamorçage/sabotage,   key_ability: INT, usable_untrained: false }
+  - { id: 10, name: Disguise,           name_fr: Déguisement,            key_ability: CHA }
+  - { id: 11, name: Escape Artist,      name_fr: Évasion,                key_ability: DEX, armor_check_penalty: true }
+  - { id: 12, name: Forgery,            name_fr: Falsification,          key_ability: INT }
+  - { id: 13, name: Gather Information, name_fr: Renseignements,         key_ability: CHA }
+  - { id: 14, name: Handle Animal,      name_fr: Dressage,               key_ability: CHA, usable_untrained: false }
+  - { id: 15, name: Heal,               name_fr: Premiers secours,       key_ability: WIS }
+  - { id: 16, name: Hide,               name_fr: Discrétion,             key_ability: DEX, armor_check_penalty: true }
+  - { id: 17, name: Intimidate,         name_fr: Intimidation,           key_ability: CHA }
+  - { id: 18, name: Jump,               name_fr: Saut,                   key_ability: STR, armor_check_penalty: true }
+  - { id: 19, name: Knowledge,          name_fr: Connaissances,          key_ability: INT, usable_untrained: false, takes_specialization: true, sheet_rows: 5 }
+  - { id: 20, name: Listen,             name_fr: Perception auditive,    key_ability: WIS }
+  - { id: 21, name: Move Silently,      name_fr: Déplacement silencieux, key_ability: DEX, armor_check_penalty: true }
+  - { id: 22, name: Open Lock,          name_fr: Crochetage,             key_ability: DEX, usable_untrained: false }
+  - { id: 23, name: Perform,            name_fr: Représentation,         key_ability: CHA, takes_specialization: true, sheet_rows: 3 }
+  - { id: 24, name: Profession,         name_fr: Profession,             key_ability: WIS, usable_untrained: false, takes_specialization: true, sheet_rows: 2 }
+  - { id: 25, name: Ride,               name_fr: Équitation,             key_ability: DEX }
+  - { id: 26, name: Search,             name_fr: Fouille,                key_ability: INT }
+  - { id: 27, name: Sense Motive,       name_fr: Psychologie,            key_ability: WIS }
+  - { id: 28, name: Sleight of Hand,    name_fr: Escamotage,             key_ability: DEX, armor_check_penalty: true, usable_untrained: false }
+  - { id: 29, name: Spellcraft,         name_fr: Art de la magie,        key_ability: INT, usable_untrained: false }
+  - { id: 30, name: Spot,               name_fr: Détection,              key_ability: WIS }
+  - { id: 31, name: Survival,           name_fr: Survie,                 key_ability: WIS }
+  - { id: 32, name: Swim,               name_fr: Natation,               key_ability: STR, armor_check_penalty: true, acp_double: true }
+  - { id: 33, name: Tumble,             name_fr: Acrobaties,             key_ability: DEX, armor_check_penalty: true, usable_untrained: false }
+  - { id: 34, name: Use Magic Device,   name_fr: Utilisation d'objets magiques, key_ability: CHA, usable_untrained: false }
+  - { id: 35, name: Use Rope,           name_fr: Utilisation de cordes,  key_ability: DEX }

@@ -19,6 +19,9 @@ SEEDS = Path(__file__).parent / "seeds"
 SKILLS_YAML = SEEDS / "skills.yaml"
 
 _DEFAULTS: dict[str, Any] = {
+    # An untranslated skill is a skill the French sheet shows under its English name, not a
+    # seeding error — so the default is null rather than a required key.
+    "name_fr": None,
     "armor_check_penalty": False,
     "acp_double": False,
     "usable_untrained": True,
