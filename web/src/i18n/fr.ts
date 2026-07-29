@@ -317,10 +317,12 @@ export const fr: Dictionary = {
   "skills.head.class.title":
     "Cochez les compétences que votre classe traite comme compétences de classe",
   "skills.head.skill": "Compétence",
-  "skills.head.keyAbility": "Caractéristique clé",
+  "skills.head.keyAbility": "Caractéristique",
   "skills.head.total": "Total",
   "skills.head.ranks": "Rangs",
-  "skills.head.ability": "Caractéristique",
+  // Le nom de la caractéristique est en colonne 3 ; celle-ci porte son modificateur. Deux
+  // en-têtes « Caractéristique » dans le même tableau ne se distinguent plus.
+  "skills.head.ability": "Mod. carac.",
   "skills.head.armour": "Armure",
   "skills.head.armour.title": "Malus d'armure aux tests, doublé pour Natation",
   "skills.head.misc": "Divers",
