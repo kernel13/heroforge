@@ -33,7 +33,18 @@ interface Props {
 type ScoreField = "str_score" | "dex_score" | "con_score" | "int_score" | "wis_score" | "cha_score";
 type TempField = "str_temp" | "dex_temp" | "con_temp" | "int_temp" | "wis_temp" | "cha_temp";
 
-const HEAD = "h-8 px-2 text-[0.68rem] font-medium uppercase tracking-[0.05em] text-muted-foreground";
+/**
+ * Column headings wrap; `TableHead` forbids it by default.
+ *
+ * The heading is the widest thing in three of these four columns, so a heading that cannot break is
+ * what sets the table's minimum width — and in French "Modificateur utilisé" set that minimum past
+ * the panel, which put a horizontal scrollbar under the table and slid "Caractéristique" out of
+ * view on the left. Two lines of heading cost the header row a few pixels of height once; a
+ * scrollbar costs the reader the first column every time they look. The rows keep `nowrap`: an
+ * ability's name is what the row is called and breaking "Constitution" says nothing.
+ */
+const HEAD =
+  "h-8 px-2 text-[0.68rem] font-medium uppercase tracking-[0.05em] whitespace-normal text-muted-foreground";
 const CELL = "px-2 py-1";
 
 /**
